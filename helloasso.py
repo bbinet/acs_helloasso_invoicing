@@ -1,0 +1,155 @@
+import requests
+import syslog
+import string
+import os
+import json
+import argparse
+import unicodedata
+import re
+from datetime import datetime
+
+
+def strip_accents(s):
+    return ''.join(c for c in unicodedata.normalize('NFD', s)
+            if unicodedata.category(c) != 'Mn')
+
+class HelloAsso:
+    def __init__(self, config_path):
+        self.conf_path = config_path
+        try:
+            with open(config_path, "r") as jsonfile:
+                config = json.load(jsonfile)
+                self.conf_global = config
+                self.conf = config["conf"]
+                self.conf["dir"] = os.path.dirname(os.path.realpath(__file__))
+        except Exception as e:
+            syslog.syslog(syslog.LOG_ERR, 'Failed to load configuration: {}'.format(e))
+            raise e
+        token = self.Authenticate()
+        self.headers = {
+            'Accept': 'application/json',
+            'Authorization': 'Bearer '+token,
+        }
+
+    def ConfGet(self, *keys):
+        obj = self.conf
+        for k in keys:
+            try:
+                obj = obj[k]
+            except (IndexError, KeyError) as e:
+                return obj
+            if not isinstance(obj, (dict, list)):
+                break
+        return obj
+
+    def Authenticate(self):
+        headers = {
+          'content-type': 'application/x-www-form-urlencoded'
+        }
+        payload = {
+            'grant_type': 'client_credentials',
+            'client_id': self.conf_global["credentials"]["helloasso"]["id"],
+            'client_secret': self.conf_global["credentials"]["helloasso"]["secret"]
+        }
+        url = '{}/oauth2/token'.format(self.conf["helloasso"]["api_url"])
+        r = requests.post(url, data=payload, headers=headers)
+        return r.json()["access_token"]
+
+    def GetData(self, user_filter=None, from_filter=None, to_filter=None, activity_filter=None, refund_filter=False):
+        page = 1
+        payload = {
+            'withDetails': True,
+            'pageSize': '50'
+        }
+        if user_filter:
+            payload['userSearchKey'] = user_filter
+        if from_filter:
+            payload['from'] = from_filter
+        if to_filter:
+            payload['to'] = to_filter
+        while True:
+            payload['pageIndex'] = page
+            url = '{}/v5/organizations/{}/forms/{}/{}/items'.format(
+                    self.conf["helloasso"]["api_url"],
+                    self.conf["helloasso"]["organization_name"],
+                    self.conf["helloasso"]["formType"],
+                    self.conf["helloasso"]["formSlug"])
+            resp_json = requests.get(url, params=payload, headers=self.headers).json()
+            if "data" not in resp_json:
+                break
+            for item in resp_json["data"]:
+                if refund_filter and len(item['payments'][0]['refundOperations']) > 0:
+                    continue
+                if activity_filter and not any([
+                        re.search(activity_filter, o['name'], flags=re.IGNORECASE)
+                            for o in item.get('options', [])]):
+                    continue
+                yield item
+            if page >= resp_json["pagination"]["totalPages"]:
+                break
+            page += 1
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('conf', help='path to a config file')
+    parser.add_argument('-d', '--dump', help='dump data to files', action='store_true')
+    parser.add_argument('-m', '--member-show', help='show member data to standard output', action='store_true')
+    parser.add_argument('-j', '--json-show', help='show json data to standard output', action='store_true')
+    parser.add_argument('-r', '--refund-filtered', help='filter out refunded orders', action='store_true')
+    parser.add_argument('-u', '--user-filter', help='filter on user name')
+    parser.add_argument('-f', '--from-filter', help='filter on start date')
+    parser.add_argument('-t', '--to-filter', help='filter on end date')
+    parser.add_argument('-a', '--activity-filter', help='regex filter on activities')
+    args = parser.parse_args()
+    #import pdb; pdb.set_trace()
+
+    helloasso = HelloAsso(args.conf)
+    count = 0
+    for item in helloasso.GetData(args.user_filter, args.from_filter, args.to_filter, args.activity_filter, args.refund_filtered):
+        count += 1
+        firstname = strip_accents(item['user']['firstName'].lower().replace(" ", ""))
+        lastname = strip_accents(item['user']['lastName'].lower().replace(" ", ""))
+        orderdate = item['order']['date'].split('T')[0]
+        filename = f"{firstname}_{lastname}_{orderdate}_{item['id']}.json"
+        filepath = os.path.join(helloasso.ConfGet('dir'), 'invoicing',
+                helloasso.ConfGet('helloasso', 'formSlug'), filename)
+        if args.member_show:
+            member = {
+                    'firstname': item['user']['firstName'].strip().title(),
+                    'lastname': item['user']['lastName'].strip().title(),
+                    'email': item['payer']['email'],
+                    'activities': [o['name'] for o in item['options']],
+                    }
+            for field in item['customFields']:
+                if field['name'] == "Soci\u00e9t\u00e9":
+                    member['company'] = field['answer'].upper()
+                elif field['name'] == "T\u00e9l\u00e9phone":
+                    member['phone'] = field['answer']
+            print(f"{count:3}. Adhésion n°{item['id']} le {orderdate}:")
+            print(f"     {member['firstname']} {member['lastname']} ({member['company']})")
+            print(f"     {member['email']} - {member['phone']}")
+            print(f"     {' - '.join(member['activities'])}")
+            print("-" * 80)
+
+        if args.json_show:
+            print(json.dumps(item, indent=4))
+            print("=" * 80)
+
+        if not args.dump:
+            continue
+
+        if os.path.isfile(filepath):
+            if len(item['payments'][0]['refundOperations']) > 0:
+                print(f"/!\\ Attention refund operation : {filename}")
+            else:
+                print(f"Nothing to do: {filename} already exists")
+        else:
+            if len(item['payments'][0]['refundOperations']) > 0:
+                print(f"Ignore {filename} (remboursement)")
+                continue
+            os.makedirs(os.path.dirname(filepath))
+            with open(filepath, "w") as f:
+                json.dump(item, f, indent=4)
+                print(f"Item data written to file: {filename}")
+    print(f"{count} results returned.")
