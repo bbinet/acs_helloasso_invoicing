@@ -1,0 +1,117 @@
+html {
+  color: #222;
+  font-family: "Cantarell";
+  font-weight: 300;
+  line-height: 1.4;
+}
+
+body::after {
+  background: url(logo.svg) 50% 50% / cover no-repeat;
+  position: absolute;
+  bottom: -5cm;
+  right: -4.5cm;
+  content: '';
+  height: 20cm;
+  width: 20cm;
+  opacity: 0.05;
+}
+
+h1 {
+  font-size: 1em;
+  font-weight: normal;
+}
+
+sup {
+  font-size: 0.7em;
+  vertical-align: 60%;
+}
+
+address {
+  font-style: normal;
+  white-space: pre-line;
+}
+
+header {
+  margin-bottom: 8em;
+}
+
+table {
+  border-collapse: collapse;
+  margin: 2em 0;
+  width: 100%;
+}
+
+thead th {
+  font-weight: 400;
+  background: #eee;
+  text-align: left;
+}
+
+th, td {
+  font-weight: inherit;
+  padding: 0.5em;
+}
+
+tbody tr {
+  border-top: 0.2mm solid #ddd;
+}
+
+tfoot * {
+  padding-top: 1.5em;
+}
+
+tfoot th {
+  text-align: right;
+}
+
+tfoot th::after {
+  content: ' :';
+}
+
+dl {
+  margin: 0;
+}
+
+dt {
+  display: inline;
+}
+
+dt::after {
+  content: ' :';
+}
+
+dd {
+  display: inline;
+  margin: 0;
+}
+
+dd::after {
+  content: '\A';
+  white-space: pre;
+}
+
+p {
+  margin: 0.5em 0;
+}
+
+.table {
+  display: table;
+  width: 100%;
+}
+.cell {
+  display: table-cell;
+  vertical-align: top;
+}
+
+.right {
+  float: right;
+}
+
+#logo {
+  background: url(logo.svg) 5% 5% / contain no-repeat;
+  width: 20%;
+}
+
+#signature {
+  max-width: 10em;
+}

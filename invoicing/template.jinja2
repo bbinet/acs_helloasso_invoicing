@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8"/>
+    <title>ACS − Facture n°{{ id }} − {{ user["firstName"] }} {{ user["lastName"] }}</title>
+    <link type="text/css" rel="stylesheet" href="../style.css" />
+  </head>
+
+  <body>
+    <header>
+      <div class="table">
+        <span id="logo" class="cell"></span>
+        <address class="cell">
+          {%- block address_from -%}
+            ACS Savoie Technolac – L’Horloge
+            BP 234 – 73374 Le Bourget-du-Lac Cedex
+            N° agrément : W732001354
+            Téléphone : (+33) 4 79 25 36 32
+            Email : acs.technolac@gmail.com
+          {%- endblock address_from -%}
+        </address>
+      </div>
+      <address class="right">
+        {%- block address_to -%}
+          &nbsp;
+          &nbsp;
+          Le Bourget du Lac, le {{ date }}
+          A l’attention de {{ user["firstName"] }} {{ user["lastName"] }}
+        {%- endblock address_to -%}
+      </address>
+    </header>
+
+    {% block content %}
+      <h1>Facture n°{{ id }}</h1>
+      <dl>
+        <dt>Objet</dt>
+        <dd>{{ order["formName"] }}</dd>
+        <dt>Interlocuteur</dt>
+        <dd>Mélanie Bouilloux – acs.tresorier@gmail.com</dd>
+      </dl>
+
+      <table>
+        <thead>
+          <th>Désignation</th>
+          <th>Prix unitaire</th>
+          <th>Quantité</th>
+          <th>Total</th>
+        </thead>
+        <tbody>
+          <tr>
+            <td>{{ name }}</td>
+            <td>{{ amount/100.0 }} €</td>
+            <td>1</td>
+            <td>{{ amount/100.0 }} €</td>
+          </tr>
+
+        {% set total = [amount/100.0] %}
+        {% for opt in options %}
+          <tr>
+            <td>{{ opt["name"] }}</td>
+            <td>{{ opt["amount"]/100.0 }} €</td>
+            <td>{{ 1 }}</td>
+            <td>{{ opt["amount"]/100.0 }} €</td>
+          </tr>
+          {{ total.append(opt["amount"]/100.0) or '' }}
+
+          {% if loop.last %}
+            </tbody>
+            <tfoot>
+              <th colspan="3">Total à payer</th>
+              <td>{{ total | sum }} €</td>
+            </tfoot>
+          {% endif %}
+        {% endfor %}
+      </table>
+      <h1>
+        Payé le {{ "/".join(order['date'].split("T")[0].split('-') | reverse) }}.
+      </h1>
+    {% endblock content %}
+
+    <footer>
+      {% block footer %}
+        <div class="right">
+          Etabli par Mélanie Bouilloux<br/>
+          Trésorière, membre du CA de l'ACS<br/>
+          <img id="signature" src="../signature.png"/>
+        </div>
+      {% endblock footer %}
+    </footer>
+  </body>
+</html>

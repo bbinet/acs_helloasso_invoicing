@@ -75,3 +75,25 @@ $ python3 helloasso.py path/to/conf.json -m
 
 Then you can play with the various filtering options of the tool to search and
 filter data.
+
+## Generate invoices for your members
+
+Before actually generating invoices you need to dump HelloAsso data to disk
+using the `--dump` option:
+
+```
+$ python3 helloasso.py path/to/conf.json -r -dump
+```
+
+This will generate a JSON file in the `invoicing/<membership campaign>/` for
+each of you member.
+
+Then you can go to the `invoicing/<membership campaign>/` directory, and run
+the following command:
+
+```
+$ ln -sf ../Makefile ./
+$ make all
+```
+
+This will generate a PDF invoice for every JSON file in the directory.
