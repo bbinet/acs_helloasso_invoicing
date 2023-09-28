@@ -83,7 +83,7 @@ Before actually generating invoices you need to dump HelloAsso data to disk
 using the `--dump` option:
 
 ```
-$ python3 helloasso.py path/to/conf.json -r -dump
+$ python3 helloasso.py path/to/conf.json -r --dump
 ```
 
 This will generate a JSON file in the `invoicing/<membership campaign>/` for

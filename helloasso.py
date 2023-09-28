@@ -1,12 +1,9 @@
-import requests
-import syslog
-import string
 import os
 import json
 import argparse
 import unicodedata
 import re
-from datetime import datetime
+import requests
 from collections import defaultdict
 
 
@@ -17,15 +14,11 @@ def strip_accents(s):
 class HelloAsso:
     def __init__(self, config_path):
         self.conf_path = config_path
-        try:
-            with open(config_path, "r") as jsonfile:
-                config = json.load(jsonfile)
-                self.conf_global = config
-                self.conf = config["conf"]
-                self.conf["dir"] = os.path.dirname(os.path.realpath(__file__))
-        except Exception as e:
-            syslog.syslog(syslog.LOG_ERR, 'Failed to load configuration: {}'.format(e))
-            raise e
+        with open(config_path, "r") as jsonfile:
+            config = json.load(jsonfile)
+            self.conf_global = config
+            self.conf = config["conf"]
+            self.conf["dir"] = os.path.dirname(os.path.realpath(__file__))
         token = self.Authenticate()
         self.headers = {
             'Accept': 'application/json',
