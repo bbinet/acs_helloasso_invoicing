@@ -1,3 +1,6 @@
 /conf.json
 /invoicing/.venv
 /invoicing/signature.png
+/invoicing/*/*.pdf
+/invoicing/*/*.json
+/invoicing/*/Makefile
