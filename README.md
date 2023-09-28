@@ -43,8 +43,8 @@ To start using the tool, run the `helloasso.py` python script:
 ```
 $ python3 helloasso.py --help
 
-usage: helloasso.py [-h] [-d] [-m] [-j] [-r] [-u USER_FILTER] [-f FROM_FILTER]
-                    [-t TO_FILTER] [-a ACTIVITY_FILTER]
+usage: helloasso.py [-h] [-d] [-m] [-j] [-s] [-r] [-u USER_FILTER]
+                    [-f FROM_FILTER] [-t TO_FILTER] [-a ACTIVITY_FILTER]
                     conf
 
 positional arguments:
@@ -55,6 +55,7 @@ optional arguments:
   -d, --dump            dump data to files
   -m, --member-show     show member data to standard output
   -j, --json-show       show json data to standard output
+  -s, --summary-show    show summary data to standard output
   -r, --refund-filtered
                         filter out refunded orders
   -u USER_FILTER, --user-filter USER_FILTER
