@@ -3,4 +3,5 @@
 /invoicing/signature.png
 /invoicing/*/*.pdf
 /invoicing/*/*.json
+/invoicing/*/*.log
 /invoicing/*/Makefile

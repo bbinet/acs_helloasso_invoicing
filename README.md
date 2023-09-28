@@ -4,10 +4,17 @@ The ACS HelloAsso invoicing tool query HelloAsso API V5 and generate invoices fo
 
 ## Requirements
 
-You must have the `requests` Python packages installed:
+You must have the `requests` Python package installed:
 
 ```
 $ pip install requests
+```
+
+Also to send invoices by email, you'll need to install the `jq` and `sendemail`
+packages:
+
+```
+$ sudo apt install jq sendemail
 ```
 
 ## Configuration
@@ -23,6 +30,10 @@ Here is a sample configuration:
     "helloasso": {
       "id": "<YOUR_HELLOASSO_API_ID>",
       "secret": "<YOUR_HELLOASSO_API_SECRET>"
+    },
+    "sendemail": {
+      "username": "<YOUR_MAIL_PROVIDER_USERNAME>",
+      "password": "<YOUR_MAIL_PROVIDER_PASSWORD>"
     }
   },
   "conf": {
@@ -31,6 +42,12 @@ Here is a sample configuration:
       "organization_name": "acs-savoie-technolac",
       "formSlug": "inscription-acs-saison-2023-2024",
       "formType": "MemberShip"
+    },
+    "sendemail": {
+      "smtp": "smtp.gmail.com:587",
+      "from": "bruno.binet@gmail.com",
+      "subject": "Facture adhésion ACS",
+      "message": "Veuillez trouver ci-joint la facture de votre adhésion à l'ACS.\nBien cordialement,\nBruno, pour l'ACS"
     }
   }
 }
@@ -68,7 +85,8 @@ optional arguments:
                         regex filter on activities
 ```
 
-So for example, if you want to show the list of people in you membership campaign, please do:
+So for example, if you want to show the list of people in you membership
+campaign, please do:
 
 ```
 $ python3 helloasso.py path/to/conf.json -m
@@ -86,15 +104,23 @@ using the `--dump` option:
 $ python3 helloasso.py path/to/conf.json -r --dump
 ```
 
-This will generate a JSON file in the `invoicing/<membership campaign>/` for
-each of you member.
+This will generate a JSON file in `invoicing/<membership campaign>/` for each
+of your member.
 
 Then you can go to the `invoicing/<membership campaign>/` directory, and run
 the following command:
 
 ```
 $ ln -sf ../Makefile ./
-$ make all
+$ ln -sf ../../path/to/conf.json ./conf.json
+$ make pdf
 ```
 
 This will generate a PDF invoice for every JSON file in the directory.
+
+Then you can also send an email (with the invoice attached) to each of your
+members by running the following command:
+
+```
+$ make sendemail
+```
