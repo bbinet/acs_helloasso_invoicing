@@ -154,6 +154,9 @@ if __name__ == '__main__':
     if args.summary_show:
         print("\nSummary:")
         for activity, members in summary.items():
+            if args.activity_filter and not re.search(
+                    args.activity_filter, activity, flags=re.IGNORECASE):
+                continue
             print("")
             print(f"{activity}: {len(members)}")
             print("-" * len(f"{activity}: {len(members)}"))
