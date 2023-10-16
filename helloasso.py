@@ -160,7 +160,7 @@ if __name__ == '__main__':
             print("")
             print(f"{activity}: {len(members)}")
             print("-" * len(f"{activity}: {len(members)}"))
-            for m in members:
+            for m in sorted(members, key=lambda item: item['firstname']):
                 print(f"    {m['firstname']} {m['lastname']} ({m['company']})")
     print()
     print(f"{count} results returned.")
