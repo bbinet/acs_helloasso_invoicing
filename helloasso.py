@@ -91,6 +91,7 @@ if __name__ == '__main__':
     parser.add_argument('-m', '--member-show', help='show member data to standard output', action='store_true')
     parser.add_argument('-j', '--json-show', help='show json data to standard output', action='store_true')
     parser.add_argument('-s', '--summary-show', help='show summary data to standard output', action='store_true')
+    parser.add_argument('-w', '--summary-word', help='show only <word> field in summary data to standard output')
     parser.add_argument('-r', '--refund-filtered', help='filter out refunded orders', action='store_true')
     parser.add_argument('-u', '--user-filter', help='filter on user name')
     parser.add_argument('-f', '--from-filter', help='filter on start date')
@@ -160,7 +161,11 @@ if __name__ == '__main__':
             print("")
             print(f"{activity}: {len(members)}")
             print("-" * len(f"{activity}: {len(members)}"))
-            for m in sorted(members, key=lambda item: item['firstname']):
-                print(f"    {m['firstname']} {m['lastname']} ({m['company']})")
+            if args.summary_word:
+                for m in sorted(members, key=lambda item: item[args.summary_word]):
+                    print(f"    {m[args.summary_word]}")
+            else:
+                for m in sorted(members, key=lambda item: item['firstname']):
+                    print(f"    {m['firstname']} {m['lastname']} ({m['company']})")
     print()
     print(f"{count} results returned.")
