@@ -5,6 +5,8 @@ FROM ?= $(shell jq .conf.sendemail.from conf.json)
 SUBJECT ?= $(shell jq .conf.sendemail.subject conf.json)
 MESSAGE ?= $(shell jq .conf.sendemail.message conf.json)
 TO = $(shell jq .payer.email $(word 2,$^))
+MAKEFILE_DIR = $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
+SIGNATURE_PATH = $(realpath signature.png)
 
 .SILENT:
 .PHONY: clean
@@ -39,9 +41,10 @@ clean:
 
 %.pdf: %.html ../.venv
 	@echo "Generating PDF invoice from HTML file"
-	../.venv/bin/weasyprint $< $@
+	../.venv/bin/weasyprint -u $(MAKEFILE_DIR) $< $@
 
 #.PRECIOUS: %.html
-%.html: %.json ../.venv ../template.jinja2 ../style.css
+%.html: %.json ../.venv $(MAKEFILE_DIR)/template.jinja2 $(MAKEFILE_DIR)/style.css
 	@echo "Generating HTML file from Jinja2 template"
-	../.venv/bin/jinja2 -D date=$(shell date +%d/%m/%Y) --format=json ../template.jinja2 $< > $@
+	@echo "signature=$(SIGNATURE_PATH) MAKEFILE_DIR=$(MAKEFILE_DIR)"
+	../.venv/bin/jinja2 -D date=$(shell date +%d/%m/%Y) -D signature=$(SIGNATURE_PATH) --format=json $(MAKEFILE_DIR)/template.jinja2 $< > $@

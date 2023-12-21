@@ -3,5 +3,6 @@
 /invoicing/signature.png
 /invoicing/*/*.pdf
 /invoicing/*/*.json
-/invoicing/*/*.log
+/invoicing/*/*.mail.log
 /invoicing/*/Makefile
+/invoicing/*/signature.png

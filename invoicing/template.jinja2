@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8"/>
     <title>ACS − Facture n°{{ id }} − {{ user["firstName"] }} {{ user["lastName"] }}</title>
-    <link type="text/css" rel="stylesheet" href="../style.css" />
+    <link type="text/css" rel="stylesheet" href="style.css" />
   </head>
 
   <body>
@@ -83,7 +83,7 @@
         <div class="right">
           Etabli par Mélanie Bouilloux<br/>
           Trésorière, membre du CA de l'ACS<br/>
-          <img id="signature" src="../signature.png"/>
+          <img id="signature" src="file://{{ signature }}"/>
         </div>
       {% endblock footer %}
     </footer>
