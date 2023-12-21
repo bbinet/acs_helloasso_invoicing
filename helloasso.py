@@ -20,12 +20,11 @@ def strip_accents(s):
 
 class HelloAsso:
     def __init__(self, config_path):
-        self.conf_path = config_path
         with open(config_path, "r") as jsonfile:
             config = json.load(jsonfile)
             self.conf_global = config
             self.conf = config["conf"]
-            self.conf["dir"] = os.path.dirname(os.path.realpath(__file__))
+            self.conf["dir"] = os.path.dirname(os.path.realpath(config_path))
         token = self.Authenticate()
         self.headers = {
             'Accept': 'application/json',
