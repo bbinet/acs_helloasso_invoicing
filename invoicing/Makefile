@@ -19,7 +19,8 @@ sendemail: $(addsuffix .mail.log, $(basename $(filter-out conf.json, $(wildcard 
 
 clean:
 	@echo "Cleaning up all files"
-	rm -rf ../.venv *.pdf *.json *.mail.log
+	find ./ -type f \( -name \*.pdf -o -name \*.json -o -name \*.mail.log \)
+	rm -rf ../.venv
 
 %.mail.log: %.pdf %.json
 	@test -f $@ && echo "Mail was already sent (file $@ already exists)" || \
