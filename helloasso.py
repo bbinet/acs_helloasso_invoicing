@@ -156,7 +156,7 @@ if __name__ == '__main__':
             if len(item['payments'][0]['refundOperations']) > 0:
                 print(f"Ignore {filename} (remboursement)")
                 continue
-            os.makedirs(os.path.dirname(filepath))
+            os.makedirs(os.path.dirname(filepath), exist_ok=True)
             with open(filepath, "w") as f:
                 json.dump(item, f, indent=4)
                 print(f"Item data written to file: {filename}")
