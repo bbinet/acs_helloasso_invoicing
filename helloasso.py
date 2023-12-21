@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+# PYTHON_ARGCOMPLETE_OK
 import os
 import json
 import argparse
@@ -5,6 +7,11 @@ import unicodedata
 import re
 import requests
 from collections import defaultdict
+
+try:
+    import argcomplete
+except ImportError:
+    argcomplete=False
 
 
 def strip_accents(s):
@@ -97,6 +104,8 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--from-filter', help='filter on start date')
     parser.add_argument('-t', '--to-filter', help='filter on end date')
     parser.add_argument('-a', '--activity-filter', help='regex filter on activities')
+    if argcomplete:
+        argcomplete.autocomplete(parser)
     args = parser.parse_args()
     #import pdb; pdb.set_trace()
 
