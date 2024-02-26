@@ -13,6 +13,8 @@ try:
 except ImportError:
     argcomplete=False
 
+script_dir = os.path.dirname(os.path.realpath(__file__))
+
 
 def strip_accents(s):
     return ''.join(c for c in unicodedata.normalize('NFD', s)
@@ -92,7 +94,7 @@ class HelloAsso:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('conf', help='path to a config file')
+    parser.add_argument('conf', help='path to a config file', nargs='?', default=os.path.join(script_dir, 'conf.json'))
     parser.add_argument('-d', '--dump', help='dump data to files', action='store_true')
     parser.add_argument('-m', '--member-show', help='show member data to standard output', action='store_true')
     parser.add_argument('-j', '--json-show', help='show json data to standard output', action='store_true')
