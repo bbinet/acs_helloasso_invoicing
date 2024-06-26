@@ -57,7 +57,7 @@ class HelloAsso:
         r = requests.post(url, data=payload, headers=headers)
         return r.json()["access_token"]
 
-    def GetData(self, user_filter=None, from_filter=None, to_filter=None, activity_filter=None, refund_filter=False):
+    def GetData(self, user_filter=None, from_filter=None, to_filter=None, ea_filter=None, activity_filter=None, refund_filter=False):
         page = 1
         payload = {
             'withDetails': True,
@@ -82,6 +82,8 @@ class HelloAsso:
             for item in resp_json["data"]:
                 if refund_filter and len(item['payments'][0]['refundOperations']) > 0:
                     continue
+                if ea_filter and item['name'] != "Adhésion à l'ACS avec accès à la salle Emile Allais":
+                    continue
                 if activity_filter and not any([
                         re.search(activity_filter, o['name'], flags=re.IGNORECASE)
                             for o in item.get('options', [])]):
@@ -104,6 +106,7 @@ if __name__ == '__main__':
     parser.add_argument('-u', '--user-filter', help='filter on user name')
     parser.add_argument('-f', '--from-filter', help='filter on start date')
     parser.add_argument('-t', '--to-filter', help='filter on end date')
+    parser.add_argument('-e', '--ea-filter', help='filter on Emile Allais members', action='store_true')
     parser.add_argument('-a', '--activity-filter', help='regex filter on activities')
     if argcomplete:
         argcomplete.autocomplete(parser)
@@ -113,7 +116,7 @@ if __name__ == '__main__':
     helloasso = HelloAsso(args.conf)
     count = 0
     summary = defaultdict(list)
-    for item in helloasso.GetData(args.user_filter, args.from_filter, args.to_filter, args.activity_filter, args.refund_filtered):
+    for item in helloasso.GetData(args.user_filter, args.from_filter, args.to_filter, args.ea_filter, args.activity_filter, args.refund_filtered):
         count += 1
         firstname = strip_accents(item['user']['firstName'].lower().replace(" ", ""))
         lastname = strip_accents(item['user']['lastName'].lower().replace(" ", ""))
@@ -122,6 +125,7 @@ if __name__ == '__main__':
         filepath = os.path.join(helloasso.ConfGet('dir'), 'invoicing',
                 helloasso.ConfGet('helloasso', 'formSlug'), filename)
         member = {
+                'ea': item['name'] == "Adhésion à l'ACS avec accès à la salle Emile Allais",
                 'firstname': item['user']['firstName'].strip().title(),
                 'lastname': item['user']['lastName'].strip().title(),
                 'email': item['payer']['email'],
@@ -136,7 +140,7 @@ if __name__ == '__main__':
             summary[o['name']].append(member)
 
         if args.member_show:
-            print(f"{count:3}. Adhésion n°{item['id']} le {orderdate}:")
+            print(f"{count:3}. Adhésion {'EA ' if member['ea'] else ''}n°{item['id']} le {orderdate}:")
             print(f"     {member['firstname']} {member['lastname']} ({member['company']})")
             print(f"     {member['email']} - {member['phone']}")
             print(f"     {' - '.join(member['activities'])}")
