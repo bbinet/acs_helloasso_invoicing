@@ -136,8 +136,11 @@ if __name__ == '__main__':
                 member['company'] = field['answer'].upper()
             elif field['name'] == "T\u00e9l\u00e9phone":
                 member['phone'] = field['answer']
-        for o in item.get('options', []):
-            summary[o['name']].append(member)
+        if len(item.get('options', [])) > 0:
+            for o in item.get('options', []):
+                summary[o['name']].append(member)
+        else:
+            summary["Aucune activité"].append(member)
 
         if args.member_show:
             print(f"{count:3}. Adhésion {'EA ' if member['ea'] else ''}n°{item['id']} le {orderdate}:")
