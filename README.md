@@ -59,10 +59,10 @@ To start using the tool, run the `helloasso.py` python script:
 ```
 $ python3 helloasso.py --help
 
-usage: helloasso [-h] [-d] [-m] [-j] [-s] [-w SUMMARY_WORD] [-r]
-                 [-u USER_FILTER] [-f FROM_FILTER] [-t TO_FILTER]
+usage: helloasso [-h] [-d] [-m {txt,csv,json}] [-s] [-w SUMMARY_WORD] [-r]
+                 [-u USER_FILTER] [-f FROM_FILTER] [-t TO_FILTER] [-e]
                  [-a ACTIVITY_FILTER]
-                 conf
+                 [conf]
 
 positional arguments:
   conf                  path to a config file
@@ -70,14 +70,15 @@ positional arguments:
 optional arguments:
   -h, --help            show this help message and exit
   -d, --dump            dump data to files
-  -m, --member-show     show member data to standard output
-  -j, --json-show       show json data to standard output
+  -m {txt,csv,json}, --member-show {txt,csv,json}
+                        show member data to standard output
   -s, --summary-show    show summary data to standard output
   -w SUMMARY_WORD, --summary-word SUMMARY_WORD
                         show only <word> field in summary data to standard
                         output
   -r, --refund-filtered
                         filter out refunded orders
+  -e, --ea-filter       filter on Emile Allais members
   -u USER_FILTER, --user-filter USER_FILTER
                         filter on user name
   -f FROM_FILTER, --from-filter FROM_FILTER
@@ -92,7 +93,7 @@ So for example, if you want to show the list of people in you membership
 campaign, please do:
 
 ```
-$ python3 helloasso.py path/to/conf.json -m
+$ python3 helloasso.py path/to/conf.json -m txt
 ```
 
 Or a summary of all people registered grouped by activity and excluding

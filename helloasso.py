@@ -98,15 +98,14 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('conf', help='path to a config file', nargs='?', default=os.path.join(script_dir, 'conf.json'))
     parser.add_argument('-d', '--dump', help='dump data to files', action='store_true')
-    parser.add_argument('-m', '--member-show', help='show member data to standard output', action='store_true')
-    parser.add_argument('-j', '--json-show', help='show json data to standard output', action='store_true')
+    parser.add_argument('-m', '--member-show', help='show member data to standard output', choices=['txt', 'csv', 'json'])
     parser.add_argument('-s', '--summary-show', help='show summary data to standard output', action='store_true')
     parser.add_argument('-w', '--summary-word', help='show only <word> field in summary data to standard output')
     parser.add_argument('-r', '--refund-filtered', help='filter out refunded orders', action='store_true')
+    parser.add_argument('-e', '--ea-filter', help='filter on Emile Allais members', action='store_true')
     parser.add_argument('-u', '--user-filter', help='filter on user name')
     parser.add_argument('-f', '--from-filter', help='filter on start date')
     parser.add_argument('-t', '--to-filter', help='filter on end date')
-    parser.add_argument('-e', '--ea-filter', help='filter on Emile Allais members', action='store_true')
     parser.add_argument('-a', '--activity-filter', help='regex filter on activities')
     if argcomplete:
         argcomplete.autocomplete(parser)
@@ -116,6 +115,8 @@ if __name__ == '__main__':
     helloasso = HelloAsso(args.conf)
     count = 0
     summary = defaultdict(list)
+    if args.member_show == "csv":
+        print(f"Num,HelloAssoID,OrderDate,FirstName,LastName,Company,EmileAllais,Activities")
     for item in helloasso.GetData(args.user_filter, args.from_filter, args.to_filter, args.ea_filter, args.activity_filter, args.refund_filtered):
         count += 1
         firstname = strip_accents(item['user']['firstName'].lower().replace(" ", ""))
@@ -142,14 +143,15 @@ if __name__ == '__main__':
         else:
             summary["Aucune activité"].append(member)
 
-        if args.member_show:
+        if args.member_show == "txt":
             print(f"{count:3}. Adhésion {'EA ' if member['ea'] else ''}n°{item['id']} le {orderdate}:")
             print(f"     {member['firstname']} {member['lastname']} ({member['company']})")
             print(f"     {member['email']} - {member['phone']}")
             print(f"     {' - '.join(member['activities'])}")
             print("-" * 80)
-
-        if args.json_show:
+        elif args.member_show == "csv":
+            print(f"{count},{item['id']},{orderdate},{member['firstname']},{member['lastname']},{member['company']},{'Oui' if member['ea'] else 'Non'},{' - '.join(member['activities'])}")
+        elif args.member_show == "json":
             print(json.dumps(item, indent=4))
             print("=" * 80)
 
