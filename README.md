@@ -59,9 +59,9 @@ To start using the tool, run the `helloasso.py` python script:
 ```
 $ python3 helloasso.py --help
 
-usage: helloasso [-h] [-d] [-m {txt,csv,json}] [-s] [-w SUMMARY_WORD] [-r]
-                 [-u USER_FILTER] [-f FROM_FILTER] [-t TO_FILTER] [-e]
-                 [-a ACTIVITY_FILTER]
+usage: helloasso [-h] [-d] [-m {txt,csv,json}] [-p TXT_PATTERN] [-s]
+                 [-w SUMMARY_WORD] [-r] [-e] [-u USER_FILTER] [-f FROM_FILTER]
+                 [-t TO_FILTER] [-a ACTIVITY_FILTER]
                  [conf]
 
 positional arguments:
@@ -72,6 +72,11 @@ optional arguments:
   -d, --dump            dump data to files
   -m {txt,csv,json}, --member-show {txt,csv,json}
                         show member data to standard output
+  -p TXT_PATTERN, --txt-pattern TXT_PATTERN
+                        pattern to format txt output (available fields are:
+                        firstname, lastname, company, email, phone,
+                        activities, count, orderid, orderdate, ea). Example:
+                        '"{firstname} {lastname}" <{email}>'
   -s, --summary-show    show summary data to standard output
   -w SUMMARY_WORD, --summary-word SUMMARY_WORD
                         show only <word> field in summary data to standard
@@ -94,6 +99,13 @@ campaign, please do:
 
 ```
 $ python3 helloasso.py path/to/conf.json -m txt
+```
+
+Or if you want to get all email addresses of the members of the football
+activity:
+
+```
+$ python3 helloasso.py path/to/conf.json -r -a football -m txt -p '"{firstname} {lastname}" <{email}>'
 ```
 
 Or a summary of all people registered grouped by activity and excluding

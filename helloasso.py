@@ -99,6 +99,9 @@ if __name__ == '__main__':
     parser.add_argument('conf', help='path to a config file', nargs='?', default=os.path.join(script_dir, 'conf.json'))
     parser.add_argument('-d', '--dump', help='dump data to files', action='store_true')
     parser.add_argument('-m', '--member-show', help='show member data to standard output', choices=['txt', 'csv', 'json'])
+    parser.add_argument('-p', '--txt-pattern', help='pattern to format txt output '
+            '(available fields are: firstname, lastname, company, email, phone, activities, count, orderid, orderdate, ea).'
+            ' Example: \'"{firstname} {lastname}" <{email}>\'')
     parser.add_argument('-s', '--summary-show', help='show summary data to standard output', action='store_true')
     parser.add_argument('-w', '--summary-word', help='show only <word> field in summary data to standard output')
     parser.add_argument('-r', '--refund-filtered', help='filter out refunded orders', action='store_true')
@@ -144,11 +147,15 @@ if __name__ == '__main__':
             summary["Aucune activité"].append(member)
 
         if args.member_show == "txt":
-            print(f"{count:3}. Adhésion {'EA ' if member['ea'] else ''}n°{item['id']} le {orderdate}:")
-            print(f"     {member['firstname']} {member['lastname']} ({member['company']})")
-            print(f"     {member['email']} - {member['phone']}")
-            print(f"     {' - '.join(member['activities'])}")
-            print("-" * 80)
+            if args.txt_pattern:
+                print(args.txt_pattern.format(
+                    count=count, orderid=item["id"], orderdate=orderdate, **member))
+            else:
+                print(f"{count:3}. Adhésion {'EA ' if member['ea'] else ''}n°{item['id']} le {orderdate}:")
+                print(f"     {member['firstname']} {member['lastname']} ({member['company']})")
+                print(f"     {member['email']} - {member['phone']}")
+                print(f"     {' - '.join(member['activities'])}")
+                print("-" * 80)
         elif args.member_show == "csv":
             print(f"{count},{item['id']},{orderdate},{member['firstname']},{member['lastname']},{member['company']},{'Oui' if member['ea'] else 'Non'},{' - '.join(member['activities'])}")
         elif args.member_show == "json":
