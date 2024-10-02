@@ -133,7 +133,7 @@ if __name__ == '__main__':
                 'firstname': item['user']['firstName'].strip().title(),
                 'lastname': item['user']['lastName'].strip().title(),
                 'email': item['payer']['email'],
-                'activities': [o['name'] for o in item.get('options', [])],
+                'activities': [o['name'] for o in item.get('options', []) if "oubliez pas" not in o['name']],
                 }
         for field in item['customFields']:
             if field['name'] == "Soci\u00e9t\u00e9":
@@ -142,7 +142,8 @@ if __name__ == '__main__':
                 member['phone'] = field['answer']
         if len(item.get('options', [])) > 0:
             for o in item.get('options', []):
-                summary[o['name']].append(member)
+                if "oubliez pas" not in o['name']:
+                    summary[o['name']].append(member)
         else:
             summary["Aucune activité"].append(member)
 

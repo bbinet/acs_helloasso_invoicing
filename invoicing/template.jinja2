@@ -56,6 +56,7 @@
 
         {% set total = [amount/100.0] %}
         {% for opt in options %}
+          {% if "oubliez pas" not in opt["name"] %}
           <tr>
             <td>{{ opt["name"] }}</td>
             <td>{{ opt["amount"]/100.0 }} €</td>
@@ -63,6 +64,7 @@
             <td>{{ opt["amount"]/100.0 }} €</td>
           </tr>
           {{ total.append(opt["amount"]/100.0) or '' }}
+          {% endif %}
 
           {% if loop.last %}
             </tbody>
