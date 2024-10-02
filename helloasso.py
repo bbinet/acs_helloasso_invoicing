@@ -15,6 +15,10 @@ except ImportError:
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
 
+default_conf = 'conf.json'
+if not os.path.isfile(default_conf):
+    default_conf = os.path.join(script_dir, 'conf.json')
+
 
 def strip_accents(s):
     return ''.join(c for c in unicodedata.normalize('NFD', s)
@@ -96,7 +100,7 @@ class HelloAsso:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('conf', help='path to a config file', nargs='?', default=os.path.join(script_dir, 'conf.json'))
+    parser.add_argument('conf', help='path to a config file', nargs='?', default=default_conf)
     parser.add_argument('-d', '--dump', help='dump data to files', action='store_true')
     parser.add_argument('-m', '--member-show', help='show member data to standard output', choices=['txt', 'csv', 'json'])
     parser.add_argument('-p', '--txt-pattern', help='pattern to format txt output '
