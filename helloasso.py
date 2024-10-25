@@ -20,9 +20,9 @@ if not os.path.isfile(default_conf):
     default_conf = os.path.join(script_dir, 'conf.json')
 
 
-def strip_accents(s):
+def strip_accents_ponct(s):
     return ''.join(c for c in unicodedata.normalize('NFD', s)
-            if unicodedata.category(c) != 'Mn')
+            if unicodedata.category(c) not in ('Mn', 'Po'))
 
 class HelloAsso:
     def __init__(self, config_path):
@@ -126,8 +126,8 @@ if __name__ == '__main__':
         print(f"Num,HelloAssoID,OrderDate,FirstName,LastName,Company,EmileAllais,Activities")
     for item in helloasso.GetData(args.user_filter, args.from_filter, args.to_filter, args.ea_filter, args.activity_filter, args.refund_filtered):
         count += 1
-        firstname = strip_accents(item['user']['firstName'].lower().replace(" ", ""))
-        lastname = strip_accents(item['user']['lastName'].lower().replace(" ", ""))
+        firstname = strip_accents_ponct(item['user']['firstName'].lower().replace(" ", ""))
+        lastname = strip_accents_ponct(item['user']['lastName'].lower().replace(" ", ""))
         orderdate = item['order']['date'].split('T')[0]
         filename = f"{firstname}_{lastname}_{orderdate}_{item['id']}.json"
         filepath = os.path.join(helloasso.ConfGet('dir'), 'invoicing',
