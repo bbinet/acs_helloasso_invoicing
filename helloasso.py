@@ -65,6 +65,7 @@ class HelloAsso:
         page = 1
         payload = {
             'withDetails': True,
+            'withCount': True,
             'pageSize': '50'
         }
         if user_filter:
