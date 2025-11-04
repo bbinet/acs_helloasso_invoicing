@@ -85,7 +85,7 @@ class HelloAsso:
             if "data" not in resp_json:
                 break
             for item in resp_json["data"]:
-                if refund_filter and len(item['payments'][0]['refundOperations']) > 0:
+                if refund_filter and 'payments' in item and len(item['payments'][0]['refundOperations']) > 0:
                     continue
                 if ea_filter and item['name'] != "Adhésion à l'ACS avec accès à la salle Emile Allais":
                     continue
@@ -172,12 +172,12 @@ if __name__ == '__main__':
             continue
 
         if os.path.isfile(filepath):
-            if len(item['payments'][0]['refundOperations']) > 0:
+            if 'payments' in item and len(item['payments'][0]['refundOperations']) > 0:
                 print(f"/!\\ Attention refund operation : {filename}")
             else:
                 print(f"Nothing to do: {filename} already exists")
         else:
-            if len(item['payments'][0]['refundOperations']) > 0:
+            if 'payments' in item and len(item['payments'][0]['refundOperations']) > 0:
                 print(f"Ignore {filename} (remboursement)")
                 continue
             os.makedirs(os.path.dirname(filepath), exist_ok=True)
