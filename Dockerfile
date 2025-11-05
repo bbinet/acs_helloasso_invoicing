@@ -1,4 +1,4 @@
-FROM debian:bookworm
+FROM debian:trixie
 
 MAINTAINER Bruno Binet <bruno.binet@gmail.com>
 
@@ -20,7 +20,7 @@ RUN chmod 750 /usr/local/sbin/docker-pre-start.sh && \
     chmod 755 /usr/local/share/acs_helloasso_invoicing/helloasso.py && \
     ln -s /usr/local/share/acs_helloasso_invoicing/helloasso.py /usr/local/bin/helloasso && \
     mkdir -p /etc/bash_completion.d && activate-global-python-argcomplete && \
-    mkdir /var/run/sshd
+    mkdir -p /var/run/sshd
 
 EXPOSE 22
 
