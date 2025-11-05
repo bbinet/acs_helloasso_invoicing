@@ -37,7 +37,8 @@ clean:
 		-o tls=auto \
 		-xu $(USERNAME) \
 		-xp $(PASSWORD) \
-		-l $@
+		-l $@ \
+		|| (mv $@ error_$@; exit 1)
 
 %.pdf: %.html ../.venv
 	@echo "Generating PDF invoice from HTML file"
