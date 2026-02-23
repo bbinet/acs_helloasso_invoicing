@@ -58,39 +58,36 @@ To start using the tool, run the `helloasso.py` python script:
 
 ```
 $ python3 helloasso.py --help
-
-usage: helloasso [-h] [-d] [-m {txt,csv,json}] [-p TXT_PATTERN] [-s]
-                 [-w SUMMARY_WORD] [-r] [-e] [-u USER_FILTER] [-f FROM_FILTER]
-                 [-t TO_FILTER] [-a ACTIVITY_FILTER]
-                 [conf]
+usage: helloasso.py [-h] [-d] [-m {txt,csv,json}] [-p TXT_PATTERN]
+                    [-s {min,member,pattern}] [-r] [-e] [-u USER_FILTER]
+                    [-f FROM_FILTER] [-t TO_FILTER] [-a ACTIVITY_FILTER]
+                    [conf]
 
 positional arguments:
   conf                  path to a config file
 
-optional arguments:
+options:
   -h, --help            show this help message and exit
   -d, --dump            dump data to files
-  -m {txt,csv,json}, --member-show {txt,csv,json}
+  -m, --member-show {txt,csv,json}
                         show member data to standard output
-  -p TXT_PATTERN, --txt-pattern TXT_PATTERN
+  -p, --txt-pattern TXT_PATTERN
                         pattern to format txt output (available fields are:
                         firstname, lastname, company, email, phone,
                         activities, count, orderid, orderdate, ea). Example:
                         '"{firstname} {lastname}" <{email}>'
-  -s, --summary-show    show summary data to standard output
-  -w SUMMARY_WORD, --summary-word SUMMARY_WORD
-                        show only <word> field in summary data to standard
-                        output
+  -s, --summary-show {min,member,pattern}
+                        show summary data to standard output
   -r, --refund-filtered
                         filter out refunded orders
   -e, --ea-filter       filter on Emile Allais members
-  -u USER_FILTER, --user-filter USER_FILTER
+  -u, --user-filter USER_FILTER
                         filter on user name
-  -f FROM_FILTER, --from-filter FROM_FILTER
+  -f, --from-filter FROM_FILTER
                         filter on start date
-  -t TO_FILTER, --to-filter TO_FILTER
+  -t, --to-filter TO_FILTER
                         filter on end date
-  -a ACTIVITY_FILTER, --activity-filter ACTIVITY_FILTER
+  -a, --activity-filter ACTIVITY_FILTER
                         regex filter on activities
 ```
 
