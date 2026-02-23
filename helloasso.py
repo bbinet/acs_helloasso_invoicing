@@ -62,11 +62,9 @@ class HelloAsso:
         return r.json()["access_token"]
 
     def GetData(self, user_filter=None, from_filter=None, to_filter=None, ea_filter=None, activity_filter=None, refund_filter=False):
-        page = 1
         payload = {
             'withDetails': True,
-            'withCount': True,
-            'pageSize': '50'
+            'pageSize': '100'
         }
         if user_filter:
             payload['userSearchKey'] = user_filter
@@ -75,14 +73,14 @@ class HelloAsso:
         if to_filter:
             payload['to'] = to_filter
         while True:
-            payload['pageIndex'] = page
             url = '{}/v5/organizations/{}/forms/{}/{}/items'.format(
                     self.conf["helloasso"]["api_url"],
                     self.conf["helloasso"]["organization_name"],
                     self.conf["helloasso"]["formType"],
                     self.conf["helloasso"]["formSlug"])
             resp_json = requests.get(url, params=payload, headers=self.headers).json()
-            if "data" not in resp_json:
+            payload['continuationtoken'] = resp_json['pagination']['continuationToken']
+            if "data" not in resp_json or len(resp_json['data']) <= 0:
                 break
             for item in resp_json["data"]:
                 if refund_filter and 'payments' in item and len(item['payments'][0]['refundOperations']) > 0:
@@ -94,9 +92,6 @@ class HelloAsso:
                             for o in item.get('options', [])]):
                     continue
                 yield item
-            if page >= resp_json["pagination"]["totalPages"]:
-                break
-            page += 1
 
 
 if __name__ == '__main__':
