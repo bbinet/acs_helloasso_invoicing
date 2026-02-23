@@ -102,8 +102,7 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--txt-pattern', help='pattern to format txt output '
             '(available fields are: firstname, lastname, company, email, phone, activities, count, orderid, orderdate, ea).'
             ' Example: \'"{firstname} {lastname}" <{email}>\'')
-    parser.add_argument('-s', '--summary-show', help='show summary data to standard output', action='store_true')
-    parser.add_argument('-w', '--summary-word', help='show only <word> field in summary data to standard output')
+    parser.add_argument('-s', '--summary-show', help='show summary data to standard output', choices=['min', 'member', 'pattern'])
     parser.add_argument('-r', '--refund-filtered', help='filter out refunded orders', action='store_true')
     parser.add_argument('-e', '--ea-filter', help='filter on Emile Allais members', action='store_true')
     parser.add_argument('-u', '--user-filter', help='filter on user name')
@@ -118,6 +117,7 @@ if __name__ == '__main__':
     helloasso = HelloAsso(args.conf)
     count = 0
     summary = defaultdict(list)
+    summary_none = []
     if args.member_show == "csv":
         print(f"Num,HelloAssoID,OrderDate,FirstName,LastName,Company,EmileAllais,Activities")
     for item in helloasso.GetData(args.user_filter, args.from_filter, args.to_filter, args.ea_filter, args.activity_filter, args.refund_filtered):
@@ -145,7 +145,7 @@ if __name__ == '__main__':
                 if "oubliez pas" not in o['name']:
                     summary[o['name']].append(member)
         else:
-            summary["Aucune activité"].append(member)
+            summary_none.append(member)
 
         if args.member_show == "txt":
             if args.txt_pattern:
@@ -180,19 +180,29 @@ if __name__ == '__main__':
                 json.dump(item, f, indent=4)
                 print(f"Item data written to file: {filename}")
     if args.summary_show:
+        # sort summary by number of members
+        sorted_summary = sorted(summary.items(), key=lambda item: len(item[1]), reverse=True)
+        if len(summary_none) > 0:
+            sorted_summary += [("[Aucune activité]", summary_none)]
         print("\nSummary:")
-        for activity, members in summary.items():
+        for activity, members in sorted_summary:
             if args.activity_filter and not re.search(
                     args.activity_filter, activity, flags=re.IGNORECASE):
                 continue
-            print("")
+            if args.summary_show != "min":
+                print("")
             print(f"{activity}: {len(members)}")
-            print("-" * len(f"{activity}: {len(members)}"))
-            if args.summary_word:
-                for m in sorted(members, key=lambda item: item[args.summary_word]):
-                    print(f"    {m[args.summary_word]}")
-            else:
+            if args.summary_show != "min":
+                print("-" * len(f"{activity}: {len(members)}"))
+
+            if args.summary_show == "min":
+                continue
+            elif args.summary_show == "member":
                 for m in sorted(members, key=lambda item: item['firstname']):
                     print(f"    {m['firstname']} {m['lastname']} ({m['company']})")
+            elif args.summary_show == "pattern":
+                for m in sorted(members, key=lambda item: item['firstname']):
+                    print(args.txt_pattern.format(
+                        count=count, orderid=item["id"], orderdate=orderdate, **m))
     print()
     print(f"{count} results returned.")
