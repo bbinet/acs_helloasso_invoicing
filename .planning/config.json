@@ -1,0 +1,11 @@
+{
+  "project": "acs_helloasso_invoicing",
+  "created": "2026-03-25",
+  "workflow": {
+    "research": true,
+    "ui_phase": true,
+    "auto_commit": true
+  },
+  "scope": "small",
+  "phases_target": 3
+}
