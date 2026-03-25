@@ -9,3 +9,5 @@ __pycache__/
 /invoicing/*/*.mail.log
 /invoicing/*/Makefile
 /invoicing/*/signature.png
+frontend/node_modules/
+frontend/dist/
