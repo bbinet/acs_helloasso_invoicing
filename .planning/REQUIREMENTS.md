@@ -59,7 +59,7 @@
 - **NFR-1.3**: Data storage: Flat JSON files in `invoicing/<formSlug>/` (no database)
 - **NFR-1.4**: PDF: WeasyPrint via existing Makefile pipeline
 - **NFR-1.5**: Email: sendemail via existing Makefile pipeline (kept as-is)
-- **NFR-1.6**: HTTP client: httpx (async, replacing requests in shared library)
+- **NFR-1.6**: HTTP client: requests (sync, same as CLI; web uses asyncio.to_thread())
 
 ### NFR-2: HelloAsso API Integration
 - **NFR-2.1**: Proper OAuth2 token lifecycle — use refresh_token, never re-auth per request
