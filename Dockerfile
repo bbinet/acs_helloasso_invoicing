@@ -22,8 +22,20 @@ RUN chmod 750 /usr/local/sbin/docker-pre-start.sh && \
     mkdir -p /etc/bash_completion.d && activate-global-python-argcomplete && \
     mkdir -p /var/run/sshd
 
+# Install Python dependencies for the API
+COPY requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir --break-system-packages -r /tmp/requirements.txt && \
+    rm /tmp/requirements.txt
+
+# Copy API application code
+COPY app/ /usr/local/share/acs_helloasso_invoicing/app/
+COPY lib/ /usr/local/share/acs_helloasso_invoicing/lib/
+
+ENV PYTHONPATH=/usr/local/share/acs_helloasso_invoicing
+
 EXPOSE 22
+EXPOSE 8000
 
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 
-CMD ["bash", "-c", "/usr/local/sbin/docker-pre-start.sh && /usr/sbin/sshd -D"]
+CMD ["bash", "-c", "/usr/local/sbin/docker-pre-start.sh && gunicorn app.main:app --workers 2 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --daemon && /usr/sbin/sshd -D"]

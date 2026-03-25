@@ -1,0 +1,36 @@
+services:
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - frontend_build:/usr/share/nginx/html:ro
+    depends_on:
+      - api
+
+  api:
+    build: .
+    ports:
+      - "22:22"
+    environment:
+      - CONF_PATH=/data/conf.json
+      - DASHBOARD_PASSWORD=${DASHBOARD_PASSWORD:-admin}
+      - SESSION_SECRET=${SESSION_SECRET:-change-me-in-production}
+    volumes:
+      - ./conf.json:/data/conf.json:ro
+      - invoicing_data:/data/invoicing
+
+  frontend-builder:
+    image: node:22-alpine
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      - frontend_build:/app/dist
+    command: sh -c "npm ci && npm run build"
+    profiles:
+      - build
+
+volumes:
+  frontend_build:
+  invoicing_data:
