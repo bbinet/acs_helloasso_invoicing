@@ -2,6 +2,8 @@ import re
 
 import requests
 
+from lib.models import EA_NAME, has_refunds
+
 
 class HelloAssoClient:
     """HelloAsso API client.
@@ -111,9 +113,9 @@ class HelloAssoClient:
             if "data" not in resp_json or len(resp_json['data']) <= 0:
                 break
             for item in resp_json["data"]:
-                if refund_filter and 'payments' in item and len(item['payments'][0]['refundOperations']) > 0:
+                if refund_filter and has_refunds(item):
                     continue
-                if ea_filter and item['name'] != "Adh\u00e9sion \u00e0 l'ACS avec acc\u00e8s \u00e0 la salle Emile Allais":
+                if ea_filter and item['name'] != EA_NAME:
                     continue
                 if activity_filter and not any([
                         re.search(activity_filter, o['name'], flags=re.IGNORECASE)

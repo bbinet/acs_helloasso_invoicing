@@ -10,7 +10,7 @@ from fastapi.responses import StreamingResponse
 
 from app.routes.auth import require_auth
 from lib.filesystem import get_invoicing_dir, scan_members, get_member_status
-from lib.models import parse_member
+from lib.models import EA_NAME, has_refunds, parse_member
 
 router = APIRouter()
 
@@ -57,16 +57,11 @@ def list_members(
     results = []
 
     for filepath, item in items:
-        # Refund filter
-        if refund_filtered:
-            payments = item.get("payments", [])
-            if payments and len(payments[0].get("refundOperations", [])) > 0:
-                continue
+        if refund_filtered and has_refunds(item):
+            continue
 
-        # EA filter
-        if ea_filter:
-            if item["name"] != "Adh\u00e9sion \u00e0 l'ACS avec acc\u00e8s \u00e0 la salle Emile Allais":
-                continue
+        if ea_filter and item["name"] != EA_NAME:
+            continue
 
         member_resp = _member_to_response(filepath, item)
 

@@ -1,6 +1,7 @@
 import glob
 import json
 import os
+from datetime import datetime
 
 from lib.config import conf_get
 from lib.models import get_member_filename
@@ -31,6 +32,28 @@ def scan_members(invoicing_dir):
             if os.path.basename(p) != "conf.json"]
 
 
+def filter_members_by_ids(filepaths, member_ids):
+    """Filter member filepaths to only those whose item ID is in member_ids."""
+    id_set = set(member_ids)
+    filtered = []
+    for fp in filepaths:
+        with open(fp) as f:
+            item = json.load(f)
+        if item["id"] in id_set:
+            filtered.append(fp)
+    return filtered
+
+
+def json_basename(filepath):
+    """Extract basename without .json extension from a filepath."""
+    return os.path.splitext(os.path.basename(filepath))[0]
+
+
+def sibling_path(json_filepath, ext):
+    """Return path with a different extension for a .json filepath."""
+    return json_filepath.rsplit('.json', 1)[0] + ext
+
+
 def get_member_status(json_filepath):
     """Check invoice PDF and mail log status for a member JSON file.
 
@@ -54,10 +77,8 @@ def get_member_status(json_filepath):
         "email_date": None,
     }
 
-    # Invoice date from PDF mtime
     if status["invoice_generated"]:
         try:
-            from datetime import datetime
             mtime = os.path.getmtime(pdf_path)
             status["invoice_date"] = datetime.fromtimestamp(mtime).strftime("%Y-%m-%d")
         except OSError:
@@ -71,7 +92,6 @@ def get_member_status(json_filepath):
         try:
             with open(mail_log) as f:
                 content = f.read()
-            # Extract date from first line (ISO format before space)
             first_line = content.strip().split("\n")[0]
             date_part = first_line.split(" ")[0]
             if "T" in date_part or "-" in date_part:

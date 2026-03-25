@@ -9,6 +9,13 @@ def strip_accents_ponct(s):
 
 
 EA_NAME = "Adh\u00e9sion \u00e0 l'ACS avec acc\u00e8s \u00e0 la salle Emile Allais"
+IGNORED_OPTION = "oubliez pas"
+
+
+def has_refunds(item):
+    """Check if a HelloAsso item has refund operations."""
+    payments = item.get("payments", [])
+    return bool(payments and len(payments[0].get("refundOperations", [])) > 0)
 
 
 def parse_member(item):
@@ -18,7 +25,7 @@ def parse_member(item):
         'firstname': item['user']['firstName'].strip().title(),
         'lastname': item['user']['lastName'].strip().title(),
         'email': item['payer']['email'],
-        'activities': [o['name'] for o in item.get('options', []) if "oubliez pas" not in o['name']],
+        'activities': [o['name'] for o in item.get('options', []) if IGNORED_OPTION not in o['name']],
     }
     for field in item.get('customFields', []):
         if field['name'] == "Soci\u00e9t\u00e9":
@@ -37,15 +44,7 @@ def get_member_filename(item):
 
 
 def build_summary(items_and_members):
-    """Group members by activity, sorted by member count descending.
-
-    Args:
-        items_and_members: list of (item, member) tuples
-
-    Returns:
-        list of (activity_name, [members]) tuples sorted by count desc.
-        Members with no activities go into "[Aucune activite]".
-    """
+    """Group members by activity, sorted by member count descending."""
     summary = defaultdict(list)
     summary_none = []
 
@@ -53,7 +52,7 @@ def build_summary(items_and_members):
         options = item.get('options', [])
         if len(options) > 0:
             for o in options:
-                if "oubliez pas" not in o['name']:
+                if IGNORED_OPTION not in o['name']:
                     summary[o['name']].append(member)
         else:
             summary_none.append(member)
