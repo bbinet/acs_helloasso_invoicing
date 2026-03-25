@@ -1,0 +1,20 @@
+services:
+  api:
+    image: python:3.11-slim
+    working_dir: /app
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - /root/.local/lib/python3.11/site-packages:/host-packages-1:ro
+      - /usr/local/lib/python3.11/dist-packages:/host-packages-2:ro
+    environment:
+      - CONF_PATH=/dev/null
+      - DASHBOARD_PASSWORD=testpass
+      - SESSION_SECRET=test-secret
+      - PYTHONPATH=/app:/host-packages-1:/host-packages-2
+    command: >
+      python3 -m gunicorn app.main:app
+      --workers 1
+      --worker-class uvicorn.workers.UvicornWorker
+      --bind 0.0.0.0:8000
