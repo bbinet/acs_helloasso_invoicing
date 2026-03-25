@@ -24,17 +24,27 @@ The current tool is a CLI Python script that requires terminal knowledge to oper
 - **Email**: sendemail CLI tool via Makefile
 
 ## Target Architecture
-- **Frontend**: React (or Vue) SPA dashboard
-- **Backend**: Python API (FastAPI or Flask) wrapping existing HelloAsso logic
-- **PDF generation**: WeasyPrint (keep existing approach)
-- **Database**: Optional — for caching members, tracking invoice/email status
+- **Frontend**: Svelte SPA (Vite) — lightweight, compiled, no virtual DOM
+- **Backend**: Python API (FastAPI) wrapping shared library extracted from helloasso.py
+- **PDF generation**: WeasyPrint (keep existing Makefile pipeline)
+- **Email**: sendemail CLI (keep existing Makefile pipeline)
+- **Data storage**: Flat JSON files in `invoicing/<formSlug>/` (same as CLI)
+- **No database** — status tracking via filesystem (presence of .pdf, .mail.log files)
 - **Deployment**: Docker (extend existing Dockerfile)
+
+## Architecture Principles
+- **Shared library**: Extract core logic from `helloasso.py` into importable Python modules. CLI and web both import the same code.
+- **Same file arborescence**: Web reads/writes the same `invoicing/<formSlug>/*.json` files as the CLI `--dump` command.
+- **Keep sendemail**: Email sending stays via the existing Makefile/sendemail pipeline. Web triggers it, doesn't replace it.
+- **No DB**: Invoice/email status derived from filesystem (`.pdf` exists = generated, `.mail.log` exists = sent).
 
 ## Scope
 Small project (1-3 phases) focused on delivering a functional web dashboard.
 
 ## Constraints
-- Must maintain compatibility with HelloAsso API V5
-- Must preserve existing invoice template design
+- Must maintain full compatibility with existing CLI workflow
+- Must preserve existing invoice template design and Makefile pipeline
+- Must use same file arborescence as CLI (invoicing/<formSlug>/)
 - Should work within the existing Docker deployment model
 - ACS-specific branding and French language UI
+- No database — flat files only
