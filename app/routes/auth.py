@@ -1,3 +1,4 @@
+import hmac
 import os
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -20,7 +21,6 @@ def require_auth(request: Request):
     """Dependency: allow if dev mode (no password set) or session is authenticated."""
     password = _dashboard_password()
     if password is None:
-        # Dev mode — all requests pass
         return
     if not request.session.get("authenticated"):
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -31,10 +31,9 @@ def login(body: LoginRequest, request: Request):
     """Authenticate with dashboard password and set session cookie."""
     expected = _dashboard_password()
     if expected is None:
-        # Dev mode — always succeeds
         request.session["authenticated"] = True
         return {"status": "ok"}
-    if body.password != expected:
+    if not hmac.compare_digest(body.password, expected):
         raise HTTPException(status_code=401, detail="Invalid password")
     request.session["authenticated"] = True
     return {"status": "ok"}

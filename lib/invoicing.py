@@ -5,7 +5,7 @@ import subprocess
 from datetime import date
 from uuid import uuid4
 
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 
 def ensure_symlinks(invoicing_dir, config):
@@ -59,7 +59,10 @@ def run_make_email(invoicing_dir, json_basename):
 
 def render_invoice_html(template_dir, item_data, signature_path=None):
     """Render the invoice Jinja2 template with item data."""
-    env = Environment(loader=FileSystemLoader(template_dir))
+    env = Environment(
+        loader=FileSystemLoader(template_dir),
+        autoescape=select_autoescape(default_for_string=True, default=True),
+    )
     template = env.get_template("template.jinja2")
     context = dict(item_data)
     context["date"] = date.today().strftime("%d/%m/%Y")

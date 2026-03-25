@@ -13,9 +13,13 @@ export class ApiError extends Error {
 
 export async function apiFetch(path: string, options: RequestInit = {}): Promise<any> {
   const url = `/api${path}`;
+  // Add X-Requested-With header for CSRF protection
+  const headers = new Headers(options.headers as HeadersInit || {});
+  headers.set('X-Requested-With', 'XMLHttpRequest');
   const response = await fetch(url, {
     credentials: 'include',
     ...options,
+    headers,
   });
 
   if (!response.ok) {

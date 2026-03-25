@@ -15,8 +15,8 @@ services:
       - "22:22"
     environment:
       - CONF_PATH=/data/conf.json
-      - DASHBOARD_PASSWORD=${DASHBOARD_PASSWORD:-admin}
-      - SESSION_SECRET=${SESSION_SECRET:-change-me-in-production}
+      - DASHBOARD_PASSWORD=${DASHBOARD_PASSWORD}
+      - SESSION_SECRET=${SESSION_SECRET}
     volumes:
       - ./conf.json:/data/conf.json:ro
       - invoicing_data:/data/invoicing

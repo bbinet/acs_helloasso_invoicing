@@ -40,7 +40,6 @@ if __name__ == '__main__':
     if argcomplete:
         argcomplete.autocomplete(parser)
     args = parser.parse_args()
-    #import pdb; pdb.set_trace()
 
     config = load_config(args.conf)
     helloasso = HelloAssoClient(config)
