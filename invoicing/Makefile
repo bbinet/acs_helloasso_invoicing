@@ -27,14 +27,13 @@ clean:
 %.mail.log: %.pdf %.json
 	@test -f $@ && echo "Mail was already sent (file $@ already exists)" || \
 		echo "Sending invoice by email to member $(TO)"
-	test -f $@ && touch $@ || sendemail \
+	test -f $@ && touch $@ || python3 $(MAKEFILE_DIR)/sendemail.py \
 		-f $(FROM) \
 		-u $(SUBJECT) \
 		-m $(MESSAGE) \
 		-a $< \
 		-t $(TO) \
 		-s $(SMTP) \
-		-o tls=auto \
 		-xu $(USERNAME) \
 		-xp $(PASSWORD) \
 		-l $@ \

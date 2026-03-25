@@ -1,3 +1,6 @@
+__pycache__/
+*.pyc
+.venv/
 /conf.json
 /invoicing/.venv
 /invoicing/signature.png
@@ -6,3 +9,6 @@
 /invoicing/*/*.mail.log
 /invoicing/*/Makefile
 /invoicing/*/signature.png
+frontend/node_modules/
+frontend/dist/
+node_modules/

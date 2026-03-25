@@ -1,0 +1,7 @@
+requests
+fastapi
+uvicorn[standard]
+python-multipart
+itsdangerous
+jinja2
+gunicorn
