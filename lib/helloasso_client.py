@@ -1,13 +1,6 @@
 import re
-import unicodedata
 
 import requests
-
-
-def strip_accents_ponct(s):
-    """Remove accents and punctuation from a string."""
-    return ''.join(c for c in unicodedata.normalize('NFD', s)
-            if unicodedata.category(c) not in ('Mn', 'Po'))
 
 
 class HelloAssoClient:
