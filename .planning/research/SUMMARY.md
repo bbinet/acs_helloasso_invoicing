@@ -1,66 +1,63 @@
-# Research Summary: ACS HelloAsso Invoicing Dashboard
+# Research Summary: ACS HelloAsso Invoicing Web Dashboard
 
-**Domain:** Internal admin dashboard for French sports association invoicing
+**Domain:** Internal tool / Association management dashboard
 **Researched:** 2026-03-25
 **Overall confidence:** HIGH
 
 ## Executive Summary
 
-This project transforms an existing CLI-based Python tool into a web dashboard for ACS volunteers. The frontend needs are well-defined: display member data in filterable tables, trigger PDF generation, send emails, and show statistics. This is a classic internal admin/dashboard use case with a small user base (handful of volunteers), meaning performance at scale is not a concern but developer productivity and maintainability are paramount.
+This project transforms an existing CLI-based HelloAsso invoicing tool into a web dashboard for a small team of French sports association volunteers. The existing codebase is well-structured: a Python script (`helloasso.py`) wrapping the HelloAsso API V5, a Jinja2 template for invoices, WeasyPrint for PDF generation, and `sendemail` CLI for delivery. The web conversion is straightforward -- the core business logic already exists in Python and just needs HTTP endpoints in front of it.
 
-The recommended stack is **Vite + React + TypeScript** for the SPA, **Mantine** as the UI component library, **Mantine React Table** (built on TanStack Table) for the data grid, **TanStack Query** for server state management, **React Hook Form + Zod** for forms, and **react-i18next** for French-first internationalization. This stack is modern, well-documented, and avoids over-engineering for what is fundamentally a small internal tool.
+**FastAPI is the clear choice** over Flask for this project. Despite being a small internal tool (where Flask is traditionally recommended), FastAPI's built-in OAuth2 support, automatic OpenAPI docs, Pydantic validation, and the fact that the existing code already uses `requests` (easily swapped to `httpx`) make it the better fit. The auto-generated Swagger UI alone is valuable for a small team -- it serves as both documentation and a testing interface. FastAPI's dependency injection system also maps cleanly to the pattern of "authenticate with HelloAsso, then fetch data."
 
-The backend (FastAPI) will serve the built SPA in production and expose a REST API. PDF generation stays server-side with WeasyPrint. The frontend simply fetches a PDF blob and displays it via `react-pdf` or an iframe. This architecture keeps the existing invoice pipeline intact while adding a modern UI layer.
+The biggest technical concern is WeasyPrint: it is synchronous, CPU-bound, and can accumulate memory. For single-invoice generation this is fine, but batch generation (the common use case -- generating invoices for all members) must be offloaded to a background task. FastAPI's `BackgroundTasks` or a simple task queue handles this well.
 
-The biggest risk is scope creep -- this should remain a focused dashboard, not a general-purpose admin framework. The second risk is over-engineering state management or introducing unnecessary complexity (Redux, SSR, microservices) for what serves 3-5 concurrent users.
+Email sending should migrate from the `sendemail` Perl CLI tool to Python's built-in `smtplib` + `email.message.EmailMessage`. This eliminates the Perl dependency, keeps everything in-process, and is trivially testable.
 
 ## Key Findings
 
-**Stack:** Vite + React 18 + TypeScript + Mantine 7 + TanStack Query v5 + React Hook Form/Zod
-**Architecture:** SPA served by FastAPI in production, Vite dev proxy in development, single Docker container
-**Critical pitfall:** Over-engineering for a small volunteer team -- keep it simple
+**Stack:** FastAPI + SQLite (via SQLModel) + WeasyPrint + smtplib, served with Uvicorn in Docker
+**Architecture:** Service-layer facade pattern wrapping existing HelloAsso logic, with FastAPI routes as thin HTTP adapters
+**Critical pitfall:** WeasyPrint is synchronous and memory-hungry -- batch PDF generation must not block the API server
 
 ## Implications for Roadmap
 
 Based on research, suggested phase structure:
 
-1. **Foundation & Member List** - Set up Vite/React/Mantine scaffold, implement member list with filtering/sorting/pagination against FastAPI endpoints
-   - Addresses: Core data display, search/filter, table views
-   - Avoids: Building too much before validating the API integration works
+1. **Phase 1: API Foundation** - Set up FastAPI project, migrate HelloAsso wrapper to a service class, add SQLite for caching, implement basic auth
+   - Addresses: Core API endpoints (members list, filtering), authentication, data persistence
+   - Avoids: Premature frontend work before API is stable
 
-2. **Invoice Generation & PDF** - Add invoice generation triggers, PDF preview, and download
-   - Addresses: PDF generation workflow, invoice preview
-   - Avoids: Coupling PDF logic to frontend (stays server-side)
+2. **Phase 2: Invoice Pipeline** - Migrate PDF generation and email sending into FastAPI endpoints with background task support
+   - Addresses: PDF generation, email delivery, invoice tracking in DB
+   - Avoids: WeasyPrint blocking issues by implementing background tasks from the start
 
-3. **Email, Statistics & Polish** - Email sending with status tracking, activity summaries/stats, French i18n polish
-   - Addresses: Email workflow, statistics views, branding
-   - Avoids: Premature optimization of features not yet validated
+3. **Phase 3: React Dashboard + Docker** - Build React SPA, serve from FastAPI, update Docker deployment
+   - Addresses: User-facing dashboard, deployment
+   - Avoids: Building UI before backend is complete and tested
 
 **Phase ordering rationale:**
-- Member list is the core view that validates the full stack integration
-- PDF generation depends on member selection (needs phase 1)
-- Email and stats are additive features that build on working infrastructure
+- Phase 1 first because all other features depend on the API layer and data access
+- Phase 2 before Phase 3 because the invoice pipeline is the core value -- it should work via API before adding UI
+- Phase 3 last because the React frontend is pure presentation over a working API
 
 **Research flags for phases:**
-- Phase 1: Standard patterns, low risk
-- Phase 2: PDF preview in browser needs testing (worker setup quirks with react-pdf)
-- Phase 3: Email status tracking may need a lightweight DB (SQLite) for persistence
+- Phase 2: May need deeper research on WeasyPrint memory behavior under repeated calls and batch processing patterns
+- Phase 3: Standard patterns for FastAPI + React SPA, unlikely to need further research
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Vite+React+TS is the industry standard; well-documented |
-| UI Library | HIGH | Mantine is well-suited for small dashboards; multiple sources agree |
-| Data Table | HIGH | Mantine React Table wraps TanStack Table with Mantine styling |
-| State Management | HIGH | TanStack Query v5 is the standard for server state |
-| Forms | HIGH | React Hook Form + Zod is the dominant pattern |
-| PDF Preview | MEDIUM | react-pdf works but has worker setup quirks |
-| i18n | HIGH | react-i18next is the standard; French support is straightforward |
+| Stack (FastAPI) | HIGH | Extensive docs, official tutorials, well-proven for API wrapping |
+| Stack (SQLite/SQLModel) | HIGH | Official FastAPI recommendation, perfect for small-scale |
+| WeasyPrint integration | MEDIUM | Known memory issues; single-invoice is fine, batch needs care |
+| Email (smtplib) | HIGH | Standard library, well-documented, direct replacement for sendemail |
+| Authentication | HIGH | FastAPI has built-in HTTP Basic Auth and session support |
+| HelloAsso API | HIGH | Official Python SDK exists, but existing custom wrapper is simpler and sufficient |
 
 ## Gaps to Address
 
-- Exact FastAPI endpoint design (depends on backend research)
-- Authentication approach (if needed -- may be unnecessary for internal tool behind VPN/Docker)
-- Whether SQLite or similar is needed for email/invoice status tracking
-- Mantine 7 vs upcoming Mantine 8 (Mantine 8 was recently released; evaluate stability)
+- WeasyPrint behavior under repeated calls in a long-running process (memory leaks) -- monitor in Phase 2
+- HelloAsso API rate limits not documented in existing code -- should add retry/backoff logic
+- Exact React SPA routing strategy with FastAPI catch-all -- straightforward but needs testing

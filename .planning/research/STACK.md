@@ -1,144 +1,97 @@
 # Technology Stack
 
-**Project:** ACS HelloAsso Invoicing Dashboard
+**Project:** ACS HelloAsso Invoicing Web Dashboard
 **Researched:** 2026-03-25
 
 ## Recommended Stack
 
-### Build Tool & Framework
+### Core Framework
 | Technology | Version | Purpose | Why |
 |------------|---------|---------|-----|
-| Vite | 6.x | Build tool & dev server | Industry standard for React SPAs. Instant HMR, fast builds. CRA is deprecated. Next.js is overkill -- this is an SPA served by Python, not an SSR app. |
-| React | 18.x | UI framework | Stable, massive ecosystem. React 19 is available but 18 is safer for library compatibility. |
-| TypeScript | 5.5+ | Type safety | Required for Zod integration, better DX with Mantine and TanStack |
+| FastAPI | 0.115+ | Web API framework | Built-in OAuth2 support, auto-generated Swagger docs (useful for small team), Pydantic validation, dependency injection maps cleanly to HelloAsso auth flow. 78K+ GitHub stars, fastest-growing Python API framework. |
+| Uvicorn | 0.34+ | ASGI server | Default FastAPI server, production-ready with `--workers` flag |
+| Pydantic | 2.x | Data validation | Already bundled with FastAPI, use for request/response models and config validation |
 
-### UI Component Library
+### Database
 | Technology | Version | Purpose | Why |
 |------------|---------|---------|-----|
-| Mantine | 7.x | Component library | Best fit for small dashboards. Built-in hooks (useForm, useDisclosure), dark mode, excellent docs. Less bloated than Ant Design. More batteries-included than shadcn/ui. |
-| @mantine/core | 7.x | Core components | Buttons, modals, inputs, layouts, navigation |
-| @mantine/hooks | 7.x | Utility hooks | useMediaQuery, useDisclosure, useClipboard, etc. |
-| @mantine/notifications | 7.x | Toast notifications | For email sent/failed feedback, invoice generation status |
-| @tabler/icons-react | latest | Icons | Mantine's recommended icon set |
+| SQLite | 3.x (system) | Lightweight persistence | Zero-config, file-based, perfect for small team. Already available in Python stdlib. Stores member cache, invoice records, email send logs. |
+| SQLModel | 0.0.22+ | ORM | Created by FastAPI author, unifies SQLAlchemy + Pydantic models into single class. Reduces boilerplate vs separate SQLAlchemy models + Pydantic schemas. |
 
-### Data Table
+### PDF Generation
 | Technology | Version | Purpose | Why |
 |------------|---------|---------|-----|
-| mantine-react-table | 2.x | Data grid | Built on TanStack Table v8, styled with Mantine. Provides sorting, filtering, pagination, row selection out of the box. No need to wire TanStack Table manually. MIT licensed. |
+| WeasyPrint | 62+ | HTML-to-PDF | Already used in existing pipeline. Existing Jinja2 template works as-is. No reason to switch. |
+| Jinja2 | 3.x | HTML templating | Already used for invoice template. FastAPI supports Jinja2 natively via `Jinja2Templates`. |
 
-### Server State Management
+### Email
 | Technology | Version | Purpose | Why |
 |------------|---------|---------|-----|
-| @tanstack/react-query | 5.x | API data fetching & caching | Handles caching, deduplication, background refetch, loading/error states. Eliminates manual useEffect fetching. The standard for React server state. |
+| smtplib (stdlib) | - | SMTP client | Built-in Python, replaces `sendemail` Perl CLI. Zero dependencies. Supports TLS, attachments, HTML. |
+| email (stdlib) | - | Message construction | Use modern `EmailMessage` API (not legacy MIMEText). Clean attachment handling. |
 
-### Forms & Validation
+### HTTP Client
 | Technology | Version | Purpose | Why |
 |------------|---------|---------|-----|
-| react-hook-form | 7.x | Form state management | Minimal re-renders, great TypeScript support, lightweight |
-| zod | 3.x | Schema validation | TypeScript-native type inference with z.infer. Schemas reusable on backend. |
-| @hookform/resolvers | 3.x | Zod-RHF bridge | Connects Zod schemas to react-hook-form validation |
+| httpx | 0.28+ | HelloAsso API calls | Drop-in replacement for `requests` with async support. Allows using `async/await` for HelloAsso API calls while WeasyPrint runs in thread pool. Connection pooling built-in. |
 
-### PDF Preview
+### Infrastructure
 | Technology | Version | Purpose | Why |
 |------------|---------|---------|-----|
-| react-pdf | 10.x | PDF viewer in browser | MIT licensed, based on PDF.js, most popular React PDF viewer. Display server-generated PDFs inline. |
+| Docker | - | Deployment | Existing Docker setup, extend current Dockerfile. Single container: FastAPI serves both API and React static files. |
+| python-multipart | 0.0.20+ | Form data | Required by FastAPI for form-based login endpoint |
 
-### Internationalization
+### Frontend (for reference)
 | Technology | Version | Purpose | Why |
 |------------|---------|---------|-----|
-| react-i18next | latest | i18n framework | Industry standard for React i18n. Supports French-first with English fallback. Hooks-based API (useTranslation). |
-| i18next | latest | i18n core | Core library used by react-i18next |
-| i18next-browser-languagedetector | latest | Language detection | Auto-detect browser language preference |
-
-### Routing
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| react-router-dom | 7.x | Client-side routing | Standard SPA routing. Pages: members list, member detail, invoice generation, email management, statistics |
-
-### Development Tools
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| ESLint | 9.x | Linting | Code quality enforcement |
-| Prettier | 3.x | Formatting | Consistent code style |
-| @tanstack/react-query-devtools | 5.x | Query debugging | Inspect cache state during development |
+| React | 18+ | SPA dashboard | Specified in project requirements. Served as static files by FastAPI. |
+| Vite | 6+ | Build tool | Fast builds, simple config, outputs static files to `dist/` for FastAPI to serve |
 
 ## Alternatives Considered
 
 | Category | Recommended | Alternative | Why Not |
 |----------|-------------|-------------|---------|
-| Build tool | Vite | Next.js | SSR/SSG unnecessary; SPA served by FastAPI. Next.js adds complexity (file-based routing, server components) with no benefit here. |
-| Build tool | Vite | CRA | Deprecated. Slow builds. No longer maintained. |
-| UI library | Mantine | Ant Design | Overkill for small project. Docs have Chinese-only sections. Harder to customize. No built-in hooks. |
-| UI library | Mantine | shadcn/ui | Requires Tailwind (extra dependency). Fewer pre-built components (48 vs 120+). Copy-paste model means more maintenance for a small team. |
-| UI library | Mantine | Material UI | Heavier bundle, enterprise-oriented, less cohesive hooks ecosystem |
-| Data table | mantine-react-table | AG Grid | Commercial license for advanced features. Overkill for this use case. |
-| Data table | mantine-react-table | Mantine DataTable | Less feature-rich than MRT for filtering/sorting/pagination |
-| State mgmt | TanStack Query | Redux/Zustand | No complex client state to manage. All data comes from API. TanStack Query handles server state perfectly. |
-| Forms | RHF + Zod | Formik + Yup | Formik has more re-renders, Yup has weaker TypeScript inference |
-| PDF | react-pdf | @react-pdf-viewer | Commercial license required |
-| i18n | react-i18next | FormatJS/react-intl | react-i18next has better ecosystem, more tutorials, simpler API |
+| Framework | FastAPI | Flask | Flask lacks built-in validation, auto-docs, and OAuth2 utilities. For a pure API backend (not server-rendered HTML), FastAPI is simpler despite Flask's maturity. |
+| ORM | SQLModel | SQLAlchemy direct | SQLModel eliminates duplicate model definitions (ORM model + Pydantic schema). For this small project, the reduced boilerplate matters. |
+| ORM | SQLModel | Peewee | Less ecosystem support, no FastAPI integration story |
+| HTTP client | httpx | requests | `requests` is sync-only. `httpx` is API-compatible but supports async. The existing code uses `requests` patterns, so migration is minimal. |
+| Email | smtplib | python-emails lib | Extra dependency for no real benefit at this scale. smtplib + EmailMessage is clean enough. |
+| Email | smtplib | SendGrid/Mailgun API | Overkill for a small association sending ~100 invoices/season. SMTP is simpler and free. |
+| PDF | WeasyPrint | wkhtmltopdf | WeasyPrint is already integrated. wkhtmltopdf is deprecated. |
+| PDF | WeasyPrint | Playwright PDF | Heavier dependency (needs browser binary). WeasyPrint is purpose-built for this. |
+| HelloAsso SDK | Custom wrapper | helloasso-python (official) | The existing `helloasso.py` is simpler and does exactly what's needed. The official SDK is auto-generated and verbose. Keep custom wrapper, refactor into a service class. |
+| Auth | HTTP Basic + session | Auth0/OAuth provider | Massive overkill for 3-5 volunteers. Simple username/password with session cookie is sufficient. |
+| DB | SQLite | PostgreSQL | No need for a database server for ~200 member records and ~200 invoice records per season. |
 
 ## Installation
 
 ```bash
-# Scaffold
-npm create vite@latest frontend -- --template react-ts
-cd frontend
-
-# Core UI
-npm install @mantine/core @mantine/hooks @mantine/notifications @tabler/icons-react
-
-# Data table
-npm install mantine-react-table
-
-# Server state
-npm install @tanstack/react-query
-
-# Forms & validation
-npm install react-hook-form zod @hookform/resolvers
-
-# Routing
-npm install react-router-dom
-
-# PDF preview
-npm install react-pdf
-
-# Internationalization
-npm install i18next react-i18next i18next-browser-languagedetector
+# Core dependencies
+pip install fastapi uvicorn[standard] sqlmodel httpx jinja2 weasyprint python-multipart
 
 # Dev dependencies
-npm install -D @tanstack/react-query-devtools @types/react @types/react-dom
+pip install -D pytest httpx pytest-asyncio ruff
 ```
 
-## Vite Configuration
+### System Dependencies (for WeasyPrint)
 
-```typescript
-// vite.config.ts
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-
-export default defineConfig({
-  plugins: [react()],
-  server: {
-    proxy: {
-      '/api': 'http://localhost:8000'  // Proxy to FastAPI in dev
-    }
-  },
-  build: {
-    outDir: 'dist',  // FastAPI serves this in production
-  }
-});
+```bash
+# Debian/Ubuntu (already in existing Dockerfile)
+apt-get install libpangocairo-1.0-0
 ```
+
+## Key Version Notes
+
+- **SQLModel 0.0.22+**: Supports Pydantic v2 (required for FastAPI 0.100+)
+- **WeasyPrint 62+**: Current stable line, dropped Python 3.7 support
+- **FastAPI 0.115+**: Stable Pydantic v2 support, improved dependency injection
 
 ## Sources
 
-- [Vite docs](https://vite.dev/)
-- [Mantine docs](https://mantine.dev/)
-- [Mantine React Table](https://www.mantine-react-table.com/)
-- [TanStack Query docs](https://tanstack.com/query/latest)
-- [React Hook Form docs](https://react-hook-form.com/)
-- [Zod docs](https://zod.dev/)
-- [react-pdf GitHub](https://github.com/wojtekmaj/react-pdf)
-- [react-i18next docs](https://react.i18next.com/)
-- [Makers Den: React UI libs comparison 2025](https://makersden.io/blog/react-ui-libs-2025-comparing-shadcn-radix-mantine-mui-chakra)
-- [Subframe: Ant Design vs Mantine 2025](https://www.subframe.com/tips/ant-design-vs-mantine-162ef)
+- [FastAPI Official Documentation](https://fastapi.tiangolo.com/)
+- [FastAPI SQL Databases Tutorial](https://fastapi.tiangolo.com/tutorial/sql-databases/)
+- [SQLModel GitHub](https://github.com/fastapi/sqlmodel)
+- [WeasyPrint Documentation](https://doc.courtbouillon.org/weasyprint/stable/)
+- [HelloAsso Python SDK](https://github.com/HelloAsso/helloasso-python)
+- [FastAPI vs Flask comparison (Better Stack)](https://betterstack.com/community/guides/scaling-python/flask-vs-fastapi/)
+- [FastAPI vs Flask comparison (Second Talent)](https://www.secondtalent.com/resources/fastapi-vs-flask/)
