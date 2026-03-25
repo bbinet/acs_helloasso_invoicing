@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from lib.config import load_config
-from app.routes import auth, campaigns, health, members, summary
+from app.routes import auth, campaigns, emails, health, invoices, members, summary
 
 app = FastAPI(title="ACS HelloAsso Dashboard")
 
@@ -32,6 +32,8 @@ except (FileNotFoundError, KeyError, Exception):
 # Include routers
 app.include_router(health.router)
 app.include_router(auth.router, prefix="/api/auth")
+app.include_router(emails.router, prefix="/api/emails")
+app.include_router(invoices.router, prefix="/api/invoices")
 app.include_router(members.router, prefix="/api/members")
 app.include_router(campaigns.router, prefix="/api/campaigns")
 app.include_router(summary.router, prefix="/api/summary")
