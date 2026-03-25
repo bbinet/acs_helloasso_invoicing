@@ -4,16 +4,28 @@
   import { getMembers, refreshCampaigns, getSummary } from '../lib/api';
 
   let members: any[] = $state([]);
-  let summary: any = $state(null);
+  let summary: { activities: any[]; total: number } | null = $state(null);
   let refreshing = $state(false);
+  let expandedActivities: Set<string> = $state(new Set());
+  let sortBy = $state<'count' | 'name'>('count');
+  let sortDir = $state<'asc' | 'desc'>('desc');
 
   let totalMembers = $derived(members.length);
   let invoicesGenerated = $derived(members.filter(m => m.invoice_generated).length);
   let emailsSent = $derived(members.filter(m => m.email_sent).length);
 
+  let sortedActivities = $derived.by(() => {
+    if (!summary) return [];
+    return [...summary.activities].sort((a, b) => {
+      const dir = sortDir === 'asc' ? 1 : -1;
+      if (sortBy === 'count') return (a.count - b.count) * dir;
+      return a.name.localeCompare(b.name) * dir;
+    });
+  });
+
   async function loadData() {
     const [membersData, summaryData] = await Promise.all([
-      getMembers(),
+      getMembers({refund_filtered: 'true'}),
       getSummary().catch(() => null),
     ]);
     members = membersData;
@@ -30,14 +42,33 @@
     }
   }
 
-  onMount(() => {
-    loadData();
-  });
+  function toggleSort(column: 'count' | 'name') {
+    if (sortBy === column) {
+      sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      sortBy = column;
+      sortDir = column === 'count' ? 'desc' : 'asc';
+    }
+  }
+
+  function sortIndicator(column: string) {
+    if (sortBy !== column) return '';
+    return sortDir === 'asc' ? ' ↑' : ' ↓';
+  }
+
+  function toggleActivity(name: string) {
+    const next = new Set(expandedActivities);
+    if (next.has(name)) { next.delete(name); } else { next.add(name); }
+    expandedActivities = next;
+  }
+
+  onMount(() => { loadData(); });
 </script>
 
 <Layout>
   <h1 class="text-2xl font-bold mb-6">Dashboard</h1>
 
+  <!-- Stats -->
   <div class="stats shadow mb-6">
     <div class="stat">
       <div class="stat-title">Total membres</div>
@@ -60,25 +91,47 @@
     Rafraîchir depuis HelloAsso
   </button>
 
-  {#if summary?.recent_activity?.length}
+  <!-- Activity Summary -->
+  {#if summary}
+    <h2 class="text-xl font-semibold mb-4">Résumé par activité</h2>
     <div class="overflow-x-auto">
-      <h2 class="text-lg font-semibold mb-2">Activité récente</h2>
-      <table class="table table-zebra">
+      <table class="table w-full">
         <thead>
           <tr>
-            <th>Date</th>
-            <th>Action</th>
-            <th>Membre</th>
+            <th>
+              <button class="font-bold" onclick={() => toggleSort('name')}>
+                Activité{sortIndicator('name')}
+              </button>
+            </th>
+            <th>
+              <button class="font-bold" onclick={() => toggleSort('count')}>
+                Nombre de membres{sortIndicator('count')}
+              </button>
+            </th>
           </tr>
         </thead>
         <tbody>
-          {#each summary.recent_activity as item}
-            <tr>
-              <td>{item.date}</td>
-              <td>{item.action}</td>
-              <td>{item.member}</td>
+          {#each sortedActivities as activity}
+            <tr class="hover" onclick={() => toggleActivity(activity.name)}>
+              <td>{activity.name}</td>
+              <td>{activity.count}</td>
             </tr>
+            {#if expandedActivities.has(activity.name)}
+              <tr>
+                <td colspan="2" class="bg-base-200 pl-8">
+                  <ul class="list-disc list-inside">
+                    {#each activity.members as member}
+                      <li>{member}</li>
+                    {/each}
+                  </ul>
+                </td>
+              </tr>
+            {/if}
           {/each}
+          <tr class="font-bold">
+            <td>Total (inscriptions)</td>
+            <td>{sortedActivities.reduce((sum, a) => sum + a.count, 0)}</td>
+          </tr>
         </tbody>
       </table>
     </div>

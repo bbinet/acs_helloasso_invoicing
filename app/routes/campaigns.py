@@ -33,7 +33,7 @@ def _sync_refresh(config):
     client = HelloAssoClient(config)
     conf = config["conf"]
     count = 0
-    for item in client.GetData():
+    for item in client.GetData(refund_filter=True):
         filepath = get_member_filepath(conf, item)
         dump_item(filepath, item)
         count += 1

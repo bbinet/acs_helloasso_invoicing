@@ -32,9 +32,53 @@ def scan_members(invoicing_dir):
 
 
 def get_member_status(json_filepath):
-    """Check if invoice PDF and mail log exist for a member JSON file."""
+    """Check invoice PDF and mail log status for a member JSON file.
+
+    Returns dict with:
+    - invoice_generated: bool (PDF file exists)
+    - invoice_date: str|None (PDF file modification date)
+    - email_sent: bool (mail.log exists and is not an error log)
+    - email_error: bool (error_*.mail.log exists)
+    - email_date: str|None (date extracted from mail.log first line)
+    """
     base = json_filepath.rsplit('.json', 1)[0]
-    return {
-        "invoice_generated": os.path.isfile(base + ".pdf"),
-        "email_sent": os.path.isfile(base + ".mail.log"),
+    basename = os.path.basename(base)
+    dirpath = os.path.dirname(json_filepath)
+    pdf_path = base + ".pdf"
+
+    status = {
+        "invoice_generated": os.path.isfile(pdf_path),
+        "invoice_date": None,
+        "email_sent": False,
+        "email_error": False,
+        "email_date": None,
     }
+
+    # Invoice date from PDF mtime
+    if status["invoice_generated"]:
+        try:
+            from datetime import datetime
+            mtime = os.path.getmtime(pdf_path)
+            status["invoice_date"] = datetime.fromtimestamp(mtime).strftime("%Y-%m-%d")
+        except OSError:
+            pass
+
+    mail_log = base + ".mail.log"
+    error_log = os.path.join(dirpath, f"error_{basename}.mail.log")
+
+    if os.path.isfile(mail_log):
+        status["email_sent"] = True
+        try:
+            with open(mail_log) as f:
+                content = f.read()
+            # Extract date from first line (ISO format before space)
+            first_line = content.strip().split("\n")[0]
+            date_part = first_line.split(" ")[0]
+            if "T" in date_part or "-" in date_part:
+                status["email_date"] = date_part.split("T")[0]
+        except (OSError, IndexError):
+            pass
+    elif os.path.isfile(error_log):
+        status["email_error"] = True
+
+    return status

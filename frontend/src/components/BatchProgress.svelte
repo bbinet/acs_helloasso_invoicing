@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
-  import { getBatchInvoiceStatus, getBatchEmailStatus } from '../lib/api';
+  import { getBatchInvoiceStatus, getBatchEmailStatus, cancelBatchInvoices, cancelBatchEmails } from '../lib/api';
 
   let {
     jobId,
@@ -15,7 +15,7 @@
   let completed = $state(0);
   let total = $state(0);
   let status = $state('running');
-  let errors: string[] = $state([]);
+  let errors: any[] = $state([]);
   let intervalId: ReturnType<typeof setInterval> | null = null;
 
   async function poll() {
@@ -27,7 +27,7 @@
       errors = result.errors ?? [];
       status = result.status;
 
-      if (result.status === 'done') {
+      if (result.status === 'done' || result.status === 'cancelled') {
         if (intervalId) {
           clearInterval(intervalId);
           intervalId = null;
@@ -36,6 +36,15 @@
       }
     } catch {
       // ignore poll errors
+    }
+  }
+
+  async function handleCancel() {
+    try {
+      const cancelFn = type === 'invoices' ? cancelBatchInvoices : cancelBatchEmails;
+      await cancelFn(jobId);
+    } catch {
+      // ignore
     }
   }
 
@@ -52,23 +61,32 @@
 </script>
 
 <div class="my-4 space-y-2">
-  <progress
-    class="progress progress-primary w-full"
-    value={completed}
-    max={total}
-  ></progress>
+  <div class="flex items-center gap-4">
+    <progress
+      class="progress progress-primary flex-1"
+      value={completed}
+      max={total}
+    ></progress>
+    {#if status === 'running'}
+      <button class="btn btn-error btn-xs" onclick={handleCancel}>
+        Arrêter
+      </button>
+    {/if}
+  </div>
   <p class="text-sm">
     {#if status === 'done'}
-      Termine !
+      Terminé ! ({completed}/{total})
+    {:else if status === 'cancelled'}
+      Annulé ({completed}/{total})
     {:else}
-      {completed} / {total} termine(s)
+      {completed} / {total} terminé(s)
     {/if}
   </p>
   {#if errors.length > 0}
-    <div class="alert alert-error">
+    <div class="alert alert-error text-sm">
       <ul>
-        {#each errors as error}
-          <li>{error}</li>
+        {#each errors as err}
+          <li>{typeof err === 'string' ? err : err.error || JSON.stringify(err)}</li>
         {/each}
       </ul>
     </div>

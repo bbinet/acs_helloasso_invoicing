@@ -1,25 +1,32 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, within, waitFor } from '@testing-library/svelte';
+import { render, screen, fireEvent } from '@testing-library/svelte';
 import MemberTable from '../components/MemberTable.svelte';
 
 const mockData = Array.from({ length: 25 }, (_, i) => ({
   id: String(i + 1),
-  last_name: `Nom${String(i + 1).padStart(2, '0')}`,
-  first_name: `Prenom${String(i + 1).padStart(2, '0')}`,
+  lastname: `Nom${String(i + 1).padStart(2, '0')}`,
+  firstname: `Prenom${String(i + 1).padStart(2, '0')}`,
   company: i % 2 === 0 ? 'ACME' : 'Globex',
   email: `user${i + 1}@test.com`,
-  activities: i % 3 === 0 ? 'Football' : i % 3 === 1 ? 'Tennis' : 'Yoga',
-  date: `2026-01-${String(i + 1).padStart(2, '0')}`,
+  activities: i % 3 === 0 ? ['Football'] : i % 3 === 1 ? ['Tennis'] : ['Yoga'],
+  order_date: `2026-01-${String(i + 1).padStart(2, '0')}`,
   ea: i % 2 === 0,
   invoice_generated: i < 10,
   email_sent: i < 5,
+  email_error: false,
+  email_date: i < 5 ? '2026-03-20T10:00:00' : null,
+  email_log: null,
 }));
 
-describe('MemberTable', () => {
-  beforeEach(() => {
-    vi.restoreAllMocks();
+beforeEach(() => {
+  vi.restoreAllMocks();
+  globalThis.fetch = vi.fn().mockResolvedValue({
+    ok: true,
+    json: () => Promise.resolve({}),
   });
+});
 
+describe('MemberTable', () => {
   it('renders rows from data prop', () => {
     render(MemberTable, { props: { data: mockData.slice(0, 3) } });
 
@@ -28,18 +35,24 @@ describe('MemberTable', () => {
     expect(screen.getByText('Nom03')).toBeInTheDocument();
   });
 
+  it('does not render # index column', () => {
+    render(MemberTable, { props: { data: mockData.slice(0, 3) } });
+
+    // No # column header
+    const headers = screen.getAllByRole('columnheader');
+    const headerTexts = headers.map(h => h.textContent?.trim());
+    expect(headerTexts).not.toContain('#');
+  });
+
   it('sorts by column when header clicked', async () => {
     render(MemberTable, { props: { data: mockData.slice(0, 5) } });
 
-    // Click "Nom" header to sort - use exact match to avoid matching "Prénom"
     const nomHeader = screen.getByRole('button', { name: /^Nom/ });
-    // Default is already ascending on last_name, so first click toggles to descending
     await fireEvent.click(nomHeader);
 
     const rows = screen.getAllByRole('row');
-    // First row is header, second should be Nom05 (descending)
     const firstDataRow = rows[1];
-    expect(within(firstDataRow).getByText('Nom05')).toBeInTheDocument();
+    expect(firstDataRow.textContent).toContain('Nom05');
   });
 
   it('filters by search text input', async () => {
@@ -58,65 +71,64 @@ describe('MemberTable', () => {
     const select = screen.getByRole('combobox');
     await fireEvent.change(select, { target: { value: 'Football' } });
 
-    // Football: indices 0, 3 => Nom01, Nom04
     expect(screen.getByText('Nom01')).toBeInTheDocument();
     expect(screen.getByText('Nom04')).toBeInTheDocument();
     expect(screen.queryByText('Nom02')).not.toBeInTheDocument();
   });
 
-  it('paginates with 20 per page and shows next/prev', async () => {
+  it('paginates with 20 per page', async () => {
     render(MemberTable, { props: { data: mockData } });
 
-    // First page: 20 items, so Nom21 should NOT be visible
     expect(screen.getByText('Nom01')).toBeInTheDocument();
     expect(screen.queryByText('Nom21')).not.toBeInTheDocument();
 
-    // Click next page
     const nextBtn = screen.getByRole('button', { name: /suivant/i });
     await fireEvent.click(nextBtn);
 
-    // Now page 2: Nom21-Nom25 visible, Nom01 not
     expect(screen.getByText('Nom21')).toBeInTheDocument();
     expect(screen.queryByText('Nom01')).not.toBeInTheDocument();
   });
 
   it('shows status badges for invoice and email', () => {
-    render(MemberTable, { props: { data: mockData.slice(0, 2) } });
+    const mixedData = [
+      { ...mockData[0], invoice_generated: true, email_sent: true, email_date: '2026-03-25' },
+      { ...mockData[1], invoice_generated: false, email_sent: false },
+    ];
+    render(MemberTable, { props: { data: mixedData } });
 
-    // Member 0 has invoice_generated=true, email_sent=true => two success badges
-    // Member 1 has invoice_generated=true, email_sent=false => one success, one error
-    const badges = screen.getAllByText('✓');
-    expect(badges.length).toBeGreaterThanOrEqual(2);
+    const successBadges = screen.getAllByText('✓');
+    expect(successBadges.length).toBeGreaterThanOrEqual(2);
 
-    const errorBadges = screen.getAllByText('✗');
-    expect(errorBadges.length).toBeGreaterThanOrEqual(1);
+    // Not-generated invoice shows — (dash)
+    const dashBadges = screen.getAllByText('—');
+    expect(dashBadges.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('action buttons fire event callbacks', async () => {
-    const onGenerateInvoice = vi.fn();
-    const onSendEmail = vi.fn();
-    const onDownload = vi.fn();
+  it('invoice and email status are clickable buttons', () => {
+    const data = [
+      { ...mockData[0], invoice_generated: true, email_sent: false },
+    ];
+    render(MemberTable, { props: { data } });
 
-    render(MemberTable, {
-      props: {
-        data: mockData.slice(0, 1),
-        onGenerateInvoice,
-        onSendEmail,
-        onDownload,
-      },
-    });
+    // Status buttons use btn class
+    const buttons = screen.getAllByRole('button');
+    const statusButtons = buttons.filter(b =>
+      b.classList.contains('btn-success') || b.classList.contains('btn-ghost')
+    );
+    expect(statusButtons.length).toBeGreaterThanOrEqual(2);
+  });
 
-    const generateBtn = screen.getByTitle('Générer facture');
-    const sendBtn = screen.getByTitle('Envoyer email');
-    const downloadBtn = screen.getByTitle('Télécharger PDF');
+  it('batch buttons show count from filtered data', () => {
+    const onBatchGenerate = vi.fn();
+    const data = [
+      { ...mockData[0], invoice_generated: true },
+      { ...mockData[1], invoice_generated: false },
+      { ...mockData[2], invoice_generated: false },
+    ];
+    render(MemberTable, { props: { data, onBatchGenerate } });
 
-    await fireEvent.click(generateBtn);
-    expect(onGenerateInvoice).toHaveBeenCalledWith('1');
-
-    await fireEvent.click(sendBtn);
-    expect(onSendEmail).toHaveBeenCalledWith('1');
-
-    await fireEvent.click(downloadBtn);
-    expect(onDownload).toHaveBeenCalledWith('1');
+    // Button should show count of not-yet-generated
+    const btn = screen.getByRole('button', { name: /générer les factures/i });
+    expect(btn.textContent).toContain('2');
   });
 });

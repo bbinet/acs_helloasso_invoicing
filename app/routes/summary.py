@@ -31,10 +31,15 @@ def get_summary(
 
     activities = []
     for name, members in summary_data:
+        # Convert member dicts to display strings
+        member_names = [
+            f"{m.get('firstname', '')} {m.get('lastname', '')} ({m.get('company', '')})"
+            for m in members
+        ]
         activities.append({
             "name": name,
             "count": len(members),
-            "members": members,
+            "members": member_names,
         })
 
     return {

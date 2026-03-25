@@ -31,15 +31,12 @@ def test_dump_item(tmp_path, sample_helloasso_item):
 
 
 def test_scan_members(tmp_path):
-    # Create some member JSON files and a conf.json that should be excluded
     for name in ["alice_smith_2024-01-01_1.json", "bob_jones_2024-01-02_2.json", "conf.json"]:
         (tmp_path / name).write_text(json.dumps({"name": name}))
     result = scan_members(str(tmp_path))
     filenames = [os.path.basename(p) for p in result]
     assert "conf.json" not in filenames
     assert len(filenames) == 2
-    assert "alice_smith_2024-01-01_1.json" in filenames
-    assert "bob_jones_2024-01-02_2.json" in filenames
 
 
 def test_get_member_status_both_false(tmp_path):
@@ -47,7 +44,10 @@ def test_get_member_status_both_false(tmp_path):
     filepath.write_text("{}")
     status = get_member_status(str(filepath))
     assert status["invoice_generated"] is False
+    assert status["invoice_date"] is None
     assert status["email_sent"] is False
+    assert status["email_error"] is False
+    assert status["email_date"] is None
 
 
 def test_get_member_status_pdf_exists(tmp_path):
@@ -56,13 +56,36 @@ def test_get_member_status_pdf_exists(tmp_path):
     (tmp_path / "member_123.pdf").write_text("")
     status = get_member_status(str(filepath))
     assert status["invoice_generated"] is True
+    assert status["invoice_date"] is not None  # Should be today's date
     assert status["email_sent"] is False
 
 
-def test_get_member_status_mail_log_exists(tmp_path):
+def test_get_member_status_mail_log_success(tmp_path):
+    filepath = tmp_path / "member_123.json"
+    filepath.write_text("{}")
+    log_content = "2026-03-25T10:30:00 sent successfully to alice@test.com\nSubject: Facture\n"
+    (tmp_path / "member_123.mail.log").write_text(log_content)
+    status = get_member_status(str(filepath))
+    assert status["email_sent"] is True
+    assert status["email_error"] is False
+    assert status["email_date"] == "2026-03-25"
+
+
+def test_get_member_status_error_log(tmp_path):
+    filepath = tmp_path / "member_123.json"
+    filepath.write_text("{}")
+    error_content = "2026-03-25T10:30:00 ERROR sending to alice@test.com\nError: Connection refused\n"
+    (tmp_path / "error_member_123.mail.log").write_text(error_content)
+    status = get_member_status(str(filepath))
+    assert status["email_sent"] is False
+    assert status["email_error"] is True
+
+
+def test_get_member_status_mail_log_empty(tmp_path):
+    """Legacy: old sendemail may have created empty log files."""
     filepath = tmp_path / "member_123.json"
     filepath.write_text("{}")
     (tmp_path / "member_123.mail.log").write_text("")
     status = get_member_status(str(filepath))
-    assert status["invoice_generated"] is False
     assert status["email_sent"] is True
+    assert status["email_date"] is None

@@ -91,16 +91,21 @@ export function generateInvoice(memberId: string) {
   return apiFetch(`/invoices/${memberId}/generate`, { method: 'POST' });
 }
 
-export function batchGenerateInvoices(memberIds?: string[]) {
-  return apiFetch('/invoices/batch', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(memberIds ? { member_ids: memberIds } : {}),
-  });
+export function batchGenerateInvoices(memberIds?: number[]) {
+  const params = memberIds ? `?${memberIds.map(id => `member_ids=${id}`).join('&')}` : '';
+  return apiFetch(`/invoices/batch${params}`, { method: 'POST' });
 }
 
 export function getBatchInvoiceStatus(jobId: string) {
   return apiFetch(`/invoices/batch/${jobId}/status`);
+}
+
+export function cancelBatchInvoices(jobId: string) {
+  return apiFetch(`/invoices/batch/${jobId}/cancel`, { method: 'POST' });
+}
+
+export function deleteInvoice(memberId: string) {
+  return apiFetch(`/invoices/${memberId}`, { method: 'DELETE' });
 }
 
 export function downloadInvoice(memberId: string) {
@@ -116,14 +121,15 @@ export function sendEmail(memberId: string) {
   return apiFetch(`/emails/${memberId}/send`, { method: 'POST' });
 }
 
-export function batchSendEmails(memberIds?: string[]) {
-  return apiFetch('/emails/batch', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(memberIds ? { member_ids: memberIds } : {}),
-  });
+export function batchSendEmails(memberIds?: number[]) {
+  const params = memberIds ? `?${memberIds.map(id => `member_ids=${id}`).join('&')}` : '';
+  return apiFetch(`/emails/batch${params}`, { method: 'POST' });
 }
 
 export function getBatchEmailStatus(jobId: string) {
   return apiFetch(`/emails/batch/${jobId}/status`);
+}
+
+export function cancelBatchEmails(jobId: string) {
+  return apiFetch(`/emails/batch/${jobId}/cancel`, { method: 'POST' });
 }

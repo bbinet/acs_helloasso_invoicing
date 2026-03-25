@@ -17,8 +17,6 @@
   <li class="menu-title text-lg font-bold">ACS Facturation</li>
   <li><a href="#/">Dashboard</a></li>
   <li><a href="#/members">Membres</a></li>
-  <li><a href="#/invoices">Factures</a></li>
-  <li><a href="#/summary">Résumé</a></li>
   <li class="mt-auto">
     <button onclick={handleLogout} class="btn btn-ghost">Déconnexion</button>
   </li>

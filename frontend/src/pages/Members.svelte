@@ -2,63 +2,81 @@
   import { onMount } from 'svelte';
   import Layout from '../components/Layout.svelte';
   import MemberTable from '../components/MemberTable.svelte';
-  import { getMembers, generateInvoice, sendEmail, downloadInvoice, exportCSV } from '../lib/api';
+  import { getMembers, generateInvoice, sendEmail, downloadInvoice, deleteInvoice, batchGenerateInvoices, batchSendEmails } from '../lib/api';
 
   let members: any[] = $state([]);
   let alertMessage = $state('');
   let alertType = $state<'success' | 'error'>('success');
+  let alertTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  function showAlert(message: string, type: 'success' | 'error') {
+    alertMessage = message;
+    alertType = type;
+    if (alertTimeout) clearTimeout(alertTimeout);
+    alertTimeout = setTimeout(() => { alertMessage = ''; }, 5000);
+  }
 
   async function loadMembers() {
-    members = await getMembers();
+    members = await getMembers({refund_filtered: 'true'});
   }
 
   async function handleGenerateInvoice(memberId: string) {
     try {
       await generateInvoice(memberId);
-      alertMessage = 'Facture generee avec succes';
-      alertType = 'success';
+      showAlert('Facture générée avec succès', 'success');
       await loadMembers();
     } catch (err: any) {
-      alertMessage = err.detail || 'Erreur lors de la generation';
-      alertType = 'error';
+      showAlert(err.detail || 'Erreur lors de la génération', 'error');
     }
   }
 
   async function handleSendEmail(memberId: string) {
     try {
       await sendEmail(memberId);
-      alertMessage = 'Email envoye avec succes';
-      alertType = 'success';
+      showAlert('Email envoyé avec succès', 'success');
       await loadMembers();
     } catch (err: any) {
-      alertMessage = err.detail || "Erreur lors de l'envoi";
-      alertType = 'error';
+      showAlert(err.detail || "Erreur lors de l'envoi", 'error');
     }
   }
 
   async function handleDownload(memberId: string) {
+    window.open(`/api/invoices/${memberId}/download`, '_blank');
+  }
+
+  async function handleDeleteInvoice(memberId: string) {
     try {
-      const result = await downloadInvoice(memberId);
-      // If the API returns a URL or blob, handle download
-      if (result.url) {
-        window.open(result.url, '_blank');
-      }
+      await deleteInvoice(memberId);
+      showAlert('Facture supprimée', 'success');
+      await loadMembers();
     } catch (err: any) {
-      alertMessage = err.detail || 'Erreur lors du telechargement';
-      alertType = 'error';
+      showAlert(err.detail || 'Erreur lors de la suppression', 'error');
     }
   }
 
-  async function handleExportCSV() {
+  async function handleRegenerateInvoice(memberId: string) {
     try {
-      const result = await exportCSV();
-      if (result.url) {
-        window.open(result.url, '_blank');
-      }
+      await deleteInvoice(memberId);
+      await generateInvoice(memberId);
+      showAlert('Facture regénérée avec succès', 'success');
+      await loadMembers();
     } catch (err: any) {
-      alertMessage = err.detail || "Erreur lors de l'export CSV";
-      alertType = 'error';
+      showAlert(err.detail || 'Erreur lors de la regénération', 'error');
     }
+  }
+
+  async function handleBatchGenerate(memberIds: string[]) {
+    const result = await batchGenerateInvoices(memberIds.map(Number));
+    return result;
+  }
+
+  async function handleBatchSend(memberIds: string[]) {
+    const result = await batchSendEmails(memberIds.map(Number));
+    return result;
+  }
+
+  function handleBatchComplete() {
+    loadMembers();
   }
 
   onMount(() => {
@@ -67,17 +85,12 @@
 </script>
 
 <Layout>
-  <div class="flex justify-between items-center mb-6">
-    <h1 class="text-2xl font-bold">Membres</h1>
-    <button class="btn btn-outline btn-sm" onclick={handleExportCSV}>
-      Exporter CSV
-    </button>
-  </div>
+  <h1 class="text-2xl font-bold mb-6">Membres</h1>
 
   {#if alertMessage}
-    <div class="alert alert-{alertType} mb-4">
+    <div class="alert mb-4" class:alert-success={alertType === 'success'} class:alert-error={alertType === 'error'}>
       <span>{alertMessage}</span>
-      <button class="btn btn-ghost btn-xs" onclick={() => alertMessage = ''}>x</button>
+      <button class="btn btn-ghost btn-xs" onclick={() => alertMessage = ''}>✕</button>
     </div>
   {/if}
 
@@ -86,5 +99,10 @@
     onGenerateInvoice={handleGenerateInvoice}
     onSendEmail={handleSendEmail}
     onDownload={handleDownload}
+    onDeleteInvoice={handleDeleteInvoice}
+    onRegenerateInvoice={handleRegenerateInvoice}
+    onBatchGenerate={handleBatchGenerate}
+    onBatchSend={handleBatchSend}
+    onBatchComplete={handleBatchComplete}
   />
 </Layout>

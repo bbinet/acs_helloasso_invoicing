@@ -4,7 +4,7 @@ import os
 import subprocess
 from uuid import uuid4
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 
 from app.routes.auth import require_auth
 from lib.filesystem import get_invoicing_dir, get_member_status, scan_members
@@ -14,6 +14,14 @@ router = APIRouter()
 
 # In-memory batch job tracking
 _batch_jobs: dict = {}
+
+
+def _format_make_error(prefix: str, exc: subprocess.CalledProcessError) -> str:
+    """Format a subprocess error into a user-friendly message."""
+    stderr = (exc.stderr or "").strip()
+    lines = [l for l in stderr.splitlines() if l.strip() and not l.startswith("make")]
+    msg = lines[-1] if lines else stderr[:200]
+    return f"{prefix}: {msg}"
 
 
 @router.post("/{member_id}/send")
@@ -37,13 +45,16 @@ async def send_email(
     ensure_symlinks(invoicing_dir, config)
     json_basename = os.path.splitext(os.path.basename(filepath))[0]
 
+    # Remove existing mail.log so make will actually re-send
+    mail_log = filepath.rsplit(".json", 1)[0] + ".mail.log"
+    if os.path.isfile(mail_log):
+        os.remove(mail_log)
+
     try:
         await asyncio.to_thread(run_make_email, invoicing_dir, json_basename)
     except subprocess.CalledProcessError as exc:
-        raise HTTPException(
-            status_code=500,
-            detail={"error": "Email sending failed", "stderr": exc.stderr},
-        )
+        detail = _format_make_error("Envoi email échoué", exc)
+        raise HTTPException(status_code=500, detail=detail)
 
     return {"status": "sent", "member_id": member_id}
 
@@ -54,15 +65,20 @@ def _run_batch_emails(job_id: str, invoicing_dir: str, pending_files: list, conf
     ensure_symlinks(invoicing_dir, config)
 
     for filepath in pending_files:
+        if job.get("cancelled"):
+            break
         json_basename = os.path.splitext(os.path.basename(filepath))[0]
         try:
             run_make_email(invoicing_dir, json_basename)
             job["completed"] += 1
         except subprocess.CalledProcessError as exc:
-            job["errors"].append({"file": json_basename, "error": exc.stderr})
+            job["errors"].append({
+                "file": json_basename,
+                "error": _format_make_error("Erreur", exc),
+            })
             job["completed"] += 1
 
-    job["status"] = "done"
+    job["status"] = "cancelled" if job.get("cancelled") else "done"
 
 
 @router.post("/batch")
@@ -70,11 +86,23 @@ def batch_send(
     request: Request,
     background_tasks: BackgroundTasks,
     _: None = Depends(require_auth),
+    member_ids: list[int] = Query(default=[]),
 ):
-    """Start batch email sending for members with PDFs but no mail log."""
+    """Start batch email sending. Optionally filter by member_ids."""
     config = request.app.state.config
     invoicing_dir = get_invoicing_dir(config["conf"])
     all_files = scan_members(invoicing_dir)
+
+    # Filter to specified member_ids if provided
+    if member_ids and len(member_ids) > 0:
+        id_set = set(member_ids)
+        filtered = []
+        for fp in all_files:
+            with open(fp) as f:
+                item = json.load(f)
+            if item["id"] in id_set:
+                filtered.append(fp)
+        all_files = filtered
 
     # Filter to members with PDF but without mail.log
     pending = [
@@ -105,3 +133,16 @@ def batch_status(
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
     return job
+
+
+@router.post("/batch/{job_id}/cancel")
+def batch_cancel(
+    job_id: str,
+    _: None = Depends(require_auth),
+):
+    """Cancel a running batch job."""
+    job = _batch_jobs.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    job["cancelled"] = True
+    return {"status": "cancelling"}

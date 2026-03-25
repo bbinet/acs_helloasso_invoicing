@@ -5,7 +5,7 @@ import os
 import subprocess
 from uuid import uuid4
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse
 
 from app.routes.auth import require_auth
@@ -16,6 +16,21 @@ router = APIRouter()
 
 # In-memory batch job tracking
 _batch_jobs: dict = {}
+
+
+def _format_make_error(prefix: str, exc: subprocess.CalledProcessError) -> str:
+    """Format a subprocess error into a user-friendly message."""
+    stderr = (exc.stderr or "").strip()
+    if "libcairo" in stderr or "libpango" in stderr or "cannot open shared object" in stderr:
+        return (
+            f"{prefix}: bibliothèques système manquantes (cairo/pango). "
+            "Installez-les avec: sudo apt install libpangocairo-1.0-0 "
+            "(ou 'nix-shell -p cairo pango' sur NixOS)"
+        )
+    # Return last meaningful line of stderr
+    lines = [l for l in stderr.splitlines() if l.strip() and not l.startswith("make")]
+    msg = lines[-1] if lines else stderr[:200]
+    return f"{prefix}: {msg}"
 
 
 @router.post("/{member_id}/generate")
@@ -37,10 +52,8 @@ async def generate_invoice(
     try:
         await asyncio.to_thread(run_make_pdf, invoicing_dir, json_basename)
     except subprocess.CalledProcessError as exc:
-        raise HTTPException(
-            status_code=500,
-            detail={"error": "PDF generation failed", "stderr": exc.stderr},
-        )
+        detail = _format_make_error("Génération PDF échouée", exc)
+        raise HTTPException(status_code=500, detail=detail)
 
     return {"status": "generated", "member_id": member_id}
 
@@ -98,15 +111,20 @@ def _run_batch_generation(job_id: str, invoicing_dir: str, pending_files: list, 
     ensure_symlinks(invoicing_dir, config)
 
     for filepath in pending_files:
+        if job.get("cancelled"):
+            break
         json_basename = os.path.splitext(os.path.basename(filepath))[0]
         try:
             run_make_pdf(invoicing_dir, json_basename)
             job["completed"] += 1
         except subprocess.CalledProcessError as exc:
-            job["errors"].append({"file": json_basename, "error": exc.stderr})
+            job["errors"].append({
+                "file": json_basename,
+                "error": _format_make_error("Erreur", exc),
+            })
             job["completed"] += 1
 
-    job["status"] = "done"
+    job["status"] = "cancelled" if job.get("cancelled") else "done"
 
 
 @router.post("/batch")
@@ -114,11 +132,23 @@ def batch_generate(
     request: Request,
     background_tasks: BackgroundTasks,
     _: None = Depends(require_auth),
+    member_ids: list[int] = Query(default=[]),
 ):
-    """Start batch PDF generation for all members without invoices."""
+    """Start batch PDF generation. Optionally filter by member_ids."""
     config = request.app.state.config
     invoicing_dir = get_invoicing_dir(config["conf"])
     all_files = scan_members(invoicing_dir)
+
+    # Filter to specified member_ids if provided
+    if member_ids and len(member_ids) > 0:
+        id_set = set(member_ids)
+        filtered = []
+        for fp in all_files:
+            with open(fp) as f:
+                item = json.load(f)
+            if item["id"] in id_set:
+                filtered.append(fp)
+        all_files = filtered
 
     # Filter to members without a PDF
     pending = [fp for fp in all_files if not get_member_status(fp)["invoice_generated"]]
@@ -145,3 +175,38 @@ def batch_status(
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
     return job
+
+
+@router.post("/batch/{job_id}/cancel")
+def batch_cancel(
+    job_id: str,
+    _: None = Depends(require_auth),
+):
+    """Cancel a running batch job."""
+    job = _batch_jobs.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    job["cancelled"] = True
+    return {"status": "cancelling"}
+
+
+@router.delete("/{member_id}")
+async def delete_invoice(
+    member_id: int,
+    request: Request,
+    _: None = Depends(require_auth),
+):
+    """Delete a generated PDF invoice."""
+    config = request.app.state.config
+    invoicing_dir = get_invoicing_dir(config["conf"])
+    filepath = find_member_file(invoicing_dir, member_id)
+    if filepath is None:
+        raise HTTPException(status_code=404, detail="Member not found")
+
+    pdf_path = filepath.rsplit(".json", 1)[0] + ".pdf"
+    html_path = filepath.rsplit(".json", 1)[0] + ".html"
+    for path in [pdf_path, html_path]:
+        if os.path.isfile(path):
+            os.remove(path)
+
+    return {"status": "deleted", "member_id": member_id}
