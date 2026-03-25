@@ -3,95 +3,23 @@
 import os
 import json
 import argparse
-import unicodedata
 import re
-import requests
-from collections import defaultdict
 
 try:
     import argcomplete
 except ImportError:
     argcomplete=False
 
+from lib.config import load_config, conf_get
+from lib.helloasso_client import HelloAssoClient
+from lib.models import parse_member, get_member_filename, build_summary, strip_accents_ponct
+from lib.filesystem import get_member_filepath, dump_item
+
 script_dir = os.path.dirname(os.path.realpath(__file__))
 
 default_conf = 'conf.json'
 if not os.path.isfile(default_conf):
     default_conf = os.path.join(script_dir, 'conf.json')
-
-
-def strip_accents_ponct(s):
-    return ''.join(c for c in unicodedata.normalize('NFD', s)
-            if unicodedata.category(c) not in ('Mn', 'Po'))
-
-class HelloAsso:
-    def __init__(self, config_path):
-        with open(config_path, "r") as jsonfile:
-            config = json.load(jsonfile)
-            self.conf_global = config
-            self.conf = config["conf"]
-            self.conf["dir"] = os.path.dirname(os.path.realpath(config_path))
-        token = self.Authenticate()
-        self.headers = {
-            'Accept': 'application/json',
-            'Authorization': 'Bearer '+token,
-        }
-
-    def ConfGet(self, *keys):
-        obj = self.conf
-        for k in keys:
-            try:
-                obj = obj[k]
-            except (IndexError, KeyError) as e:
-                return obj
-            if not isinstance(obj, (dict, list)):
-                break
-        return obj
-
-    def Authenticate(self):
-        headers = {
-          'content-type': 'application/x-www-form-urlencoded'
-        }
-        payload = {
-            'grant_type': 'client_credentials',
-            'client_id': self.conf_global["credentials"]["helloasso"]["id"],
-            'client_secret': self.conf_global["credentials"]["helloasso"]["secret"]
-        }
-        url = '{}/oauth2/token'.format(self.conf["helloasso"]["api_url"])
-        r = requests.post(url, data=payload, headers=headers)
-        return r.json()["access_token"]
-
-    def GetData(self, user_filter=None, from_filter=None, to_filter=None, ea_filter=None, activity_filter=None, refund_filter=False):
-        payload = {
-            'withDetails': True,
-            'pageSize': '100'
-        }
-        if user_filter:
-            payload['userSearchKey'] = user_filter
-        if from_filter:
-            payload['from'] = from_filter
-        if to_filter:
-            payload['to'] = to_filter
-        while True:
-            url = '{}/v5/organizations/{}/forms/{}/{}/items'.format(
-                    self.conf["helloasso"]["api_url"],
-                    self.conf["helloasso"]["organization_name"],
-                    self.conf["helloasso"]["formType"],
-                    self.conf["helloasso"]["formSlug"])
-            resp_json = requests.get(url, params=payload, headers=self.headers).json()
-            payload['continuationtoken'] = resp_json['pagination']['continuationToken']
-            if "data" not in resp_json or len(resp_json['data']) <= 0:
-                break
-            for item in resp_json["data"]:
-                if refund_filter and 'payments' in item and len(item['payments'][0]['refundOperations']) > 0:
-                    continue
-                if ea_filter and item['name'] != "Adhésion à l'ACS avec accès à la salle Emile Allais":
-                    continue
-                if activity_filter and not any([
-                        re.search(activity_filter, o['name'], flags=re.IGNORECASE)
-                            for o in item.get('options', [])]):
-                    continue
-                yield item
 
 
 if __name__ == '__main__':
@@ -114,45 +42,26 @@ if __name__ == '__main__':
     args = parser.parse_args()
     #import pdb; pdb.set_trace()
 
-    helloasso = HelloAsso(args.conf)
+    config = load_config(args.conf)
+    helloasso = HelloAssoClient(config)
     count = 0
-    summary = defaultdict(list)
-    summary_none = []
+    items_and_members = []
     if args.member_show == "csv":
         print(f"Num,HelloAssoID,OrderDate,FirstName,LastName,Company,EmileAllais,Activities")
     for item in helloasso.GetData(args.user_filter, args.from_filter, args.to_filter, args.ea_filter, args.activity_filter, args.refund_filtered):
         count += 1
-        firstname = strip_accents_ponct(item['user']['firstName'].lower().replace(" ", ""))
-        lastname = strip_accents_ponct(item['user']['lastName'].lower().replace(" ", ""))
         orderdate = item['order']['date'].split('T')[0]
-        filename = f"{firstname}_{lastname}_{orderdate}_{item['id']}.json"
-        filepath = os.path.join(helloasso.ConfGet('dir'), 'invoicing',
-                helloasso.ConfGet('helloasso', 'formSlug'), filename)
-        member = {
-                'ea': item['name'] == "Adhésion à l'ACS avec accès à la salle Emile Allais",
-                'firstname': item['user']['firstName'].strip().title(),
-                'lastname': item['user']['lastName'].strip().title(),
-                'email': item['payer']['email'],
-                'activities': [o['name'] for o in item.get('options', []) if "oubliez pas" not in o['name']],
-                }
-        for field in item['customFields']:
-            if field['name'] == "Soci\u00e9t\u00e9":
-                member['company'] = field['answer'].upper()
-            elif field['name'] == "T\u00e9l\u00e9phone":
-                member['phone'] = field['answer']
-        if len(item.get('options', [])) > 0:
-            for o in item.get('options', []):
-                if "oubliez pas" not in o['name']:
-                    summary[o['name']].append(member)
-        else:
-            summary_none.append(member)
+        filepath = get_member_filepath(config["conf"], item)
+        filename = get_member_filename(item)
+        member = parse_member(item)
+        items_and_members.append((item, member))
 
         if args.member_show == "txt":
             if args.txt_pattern:
                 print(args.txt_pattern.format(
                     count=count, orderid=item["id"], orderdate=orderdate, **member))
             else:
-                print(f"{count:3}. Adhésion {'EA ' if member['ea'] else ''}n°{item['id']} le {orderdate}:")
+                print(f"{count:3}. Adh\u00e9sion {'EA ' if member['ea'] else ''}n\u00b0{item['id']} le {orderdate}:")
                 print(f"     {member['firstname']} {member['lastname']} ({member['company']})")
                 print(f"     {member['email']} - {member['phone']}")
                 print(f"     {' - '.join(member['activities'])}")
@@ -175,15 +84,10 @@ if __name__ == '__main__':
             if 'payments' in item and len(item['payments'][0]['refundOperations']) > 0:
                 print(f"Ignore {filename} (remboursement)")
                 continue
-            os.makedirs(os.path.dirname(filepath), exist_ok=True)
-            with open(filepath, "w") as f:
-                json.dump(item, f, indent=4)
-                print(f"Item data written to file: {filename}")
+            dump_item(filepath, item)
+            print(f"Item data written to file: {filename}")
     if args.summary_show:
-        # sort summary by number of members
-        sorted_summary = sorted(summary.items(), key=lambda item: len(item[1]), reverse=True)
-        if len(summary_none) > 0:
-            sorted_summary += [("[Aucune activité]", summary_none)]
+        sorted_summary = build_summary(items_and_members)
         print("\nSummary:")
         for activity, members in sorted_summary:
             if args.activity_filter and not re.search(
