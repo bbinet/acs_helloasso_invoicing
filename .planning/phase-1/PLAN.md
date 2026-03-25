@@ -3,202 +3,178 @@
 ## Goal
 Extract shared library from `helloasso.py`, build FastAPI backend with auth, reading/writing the same flat JSON files as the CLI.
 
+## Methodology: Test-Driven Development
+Following the [TDD skill](https://github.com/bbinet/skills/tree/bbinet/tdd):
+- **Vertical slices**: RED (write one failing test) → GREEN (minimal code to pass) → repeat
+- **No horizontal slicing**: never write all tests first then all code
+- **Test behavior, not implementation**: tests use public interfaces only
+- **Mock at system boundaries only**: HelloAsso API (HTTP calls), filesystem (for fixtures)
+- **Integration-style tests**: FastAPI TestClient for API endpoints, real lib/ calls for unit tests
+
+## Test Infrastructure
+- **Framework**: pytest
+- **API testing**: `fastapi.testclient.TestClient`
+- **HTTP mocking**: `unittest.mock.patch` on `requests.post`/`requests.get` (system boundary)
+- **Filesystem**: `tmp_path` pytest fixture for isolated file operations
+- **Structure**: `tests/` directory at project root
+  ```
+  tests/
+    __init__.py
+    conftest.py          # Shared fixtures (sample HelloAsso items, config dicts)
+    test_config.py       # lib/config.py tests
+    test_models.py       # lib/models.py tests
+    test_filesystem.py   # lib/filesystem.py tests
+    test_helloasso_client.py  # lib/helloasso_client.py tests (token refresh)
+    test_api_auth.py     # Auth endpoints
+    test_api_members.py  # Members endpoints
+    test_api_campaigns.py # Campaigns endpoints
+    test_api_summary.py  # Summary endpoint
+  ```
+
 ## Success Criteria
 1. CLI `helloasso.py` works identically after refactor (all flags, all output formats)
 2. All API endpoints return correct data from JSON files
 3. HelloAsso token refreshes automatically (refresh_token flow)
 4. Auth blocks unauthenticated access (DASHBOARD_PASSWORD env var)
 5. `POST /api/campaigns/refresh` creates same JSON files as CLI `--dump`
+6. **All tests pass (`pytest` green)**
 
 ---
 
-## Wave 1: Extract Shared Library (no behavior change)
+## Wave 1: Extract Shared Library (TDD)
 
-### Task 1.1: Create `lib/config.py` — Config loading
-**Files:** `lib/__init__.py`, `lib/config.py`
+### Task 1.0: Test infrastructure + fixtures
+**Files:** `tests/__init__.py`, `tests/conftest.py`, `requirements-dev.txt`
 **What:**
-- Create `lib/__init__.py` (empty)
-- Create `lib/config.py` with a `load_config(config_path)` function that:
-  - Reads and parses conf.json
-  - Sets `conf["dir"]` to the directory of the config file (same as current `__init__`)
-  - Returns the full config dict (with `credentials`, `conf` keys)
-- Also include `conf_get(conf, *keys)` function (extracted from `HelloAsso.ConfGet`)
+- Create `tests/__init__.py` (empty)
+- Create `tests/conftest.py` with shared fixtures:
+  - `sample_helloasso_item` — a realistic HelloAsso API item dict (with user, payer, order, customFields, options, payments)
+  - `sample_config` — a minimal conf.json dict with HelloAsso + sendemail sections
+  - `config_file` — writes sample_config to a tmp_path file, returns path
+- Create `requirements-dev.txt`: `pytest`, `httpx` (for FastAPI TestClient)
 
-**Acceptance:** `load_config("conf.json")` returns same structure as current `json.load()` + dir injection.
+### Task 1.1: `lib/config.py` — Config loading (TDD)
+**Files:** `tests/test_config.py`, `lib/__init__.py`, `lib/config.py`
+**TDD cycles:**
+1. RED: test `load_config` returns config with `credentials` and `conf` keys → GREEN: implement
+2. RED: test `load_config` injects `conf["dir"]` as directory of config file → GREEN: implement
+3. RED: test `conf_get` navigates nested keys → GREEN: implement
+4. RED: test `conf_get` returns last valid value on missing key → GREEN: implement
 
-### Task 1.2: Create `lib/helloasso_client.py` — API wrapper
+### Task 1.2: `lib/helloasso_client.py` — API wrapper (extract only)
 **Files:** `lib/helloasso_client.py`
 **What:**
-- Extract `HelloAsso` class from `helloasso.py` into `lib/helloasso_client.py`
-- Class takes config dict in `__init__` (not config_path — config loading is separate)
-- Keep `Authenticate()` and `GetData()` methods exactly as-is for now
+- Extract `HelloAsso` class from `helloasso.py` (no tests yet — token refresh tested in Wave 2)
+- Class takes config dict in `__init__` (not config_path)
+- Keep `Authenticate()` and `GetData()` as-is
 - Keep `requests` as HTTP client
-- Import `requests` at module level
-- Add `strip_accents_ponct()` helper function (used by CLI for filename generation)
+- Move `strip_accents_ponct()` here temporarily (moves to models.py in Task 1.3)
 
-**Key detail:** The class interface changes from `HelloAsso(config_path)` to `HelloAsso(config)` where config is the dict returned by `load_config()`. This separates config loading from API client creation.
+**No tests for GetData/Authenticate here** — these hit external API (system boundary). Token refresh tested in Wave 2 with mocked HTTP.
 
-**Acceptance:** `HelloAsso(config).GetData(...)` yields same items as current code.
+### Task 1.3: `lib/models.py` — Member data transformation (TDD)
+**Files:** `tests/test_models.py`, `lib/models.py`
+**TDD cycles:**
+1. RED: test `parse_member` extracts firstname/lastname/email/ea from item → GREEN: implement
+2. RED: test `parse_member` extracts company/phone from customFields → GREEN: implement
+3. RED: test `parse_member` filters out "oubliez pas" activities → GREEN: implement
+4. RED: test `get_member_filename` produces normalized filename (accents stripped, spaces removed) → GREEN: implement
+5. RED: test `build_summary` groups members by activity sorted by count desc → GREEN: implement
+6. RED: test `build_summary` puts members with no activity in "[Aucune activité]" → GREEN: implement
 
-### Task 1.3: Create `lib/models.py` — Member data transformation
-**Files:** `lib/models.py`
-**What:**
-- `parse_member(item)` — extracts member dict from raw HelloAsso item (same logic as CLI lines 131-148):
-  - `ea`, `firstname`, `lastname`, `email`, `activities` from item fields
-  - `company`, `phone` from `customFields`
-  - Filters out "oubliez pas" from activities
-- `build_summary(members)` — builds activity breakdown from list of (item, member) tuples:
-  - Groups members by activity (same logic as CLI lines 143-148)
-  - Returns sorted list of `{"name": activity, "count": N, "members": [...]}`
-- `get_member_filename(item)` — computes the JSON filename from item data (firstname_lastname_orderdate_id.json, same as CLI lines 125-128)
-  - Uses `strip_accents_ponct()` for filename normalization
+Move `strip_accents_ponct()` from helloasso_client.py to models.py (used by `get_member_filename`).
 
-**Acceptance:** `parse_member(item)` returns same dict as CLI builds inline. `build_summary()` produces same grouping as CLI `-s member`.
-
-### Task 1.4: Create `lib/filesystem.py` — File operations
-**Files:** `lib/filesystem.py`
-**What:**
-- `get_invoicing_dir(conf)` — returns `os.path.join(conf_get(conf, 'dir'), 'invoicing', conf_get(conf, 'helloasso', 'formSlug'))`
-- `get_member_filepath(conf, item)` — uses `get_member_filename(item)` from models.py + `get_invoicing_dir(conf)` to build full path
-- `dump_item(filepath, item)` — write JSON file (same as CLI lines 178-181)
-- `scan_members(invoicing_dir)` — list all `.json` files (excluding `conf.json`), parse each, return list of raw item dicts
-- `get_member_status(json_filepath)` — check if corresponding `.pdf` and `.mail.log` exist, return `{"invoice_generated": bool, "email_sent": bool}`
-
-**Acceptance:** `get_member_filepath()` produces same filenames as current CLI. `dump_item()` creates same JSON files.
+### Task 1.4: `lib/filesystem.py` — File operations (TDD)
+**Files:** `tests/test_filesystem.py`, `lib/filesystem.py`
+**TDD cycles (using `tmp_path` fixture):**
+1. RED: test `get_invoicing_dir` returns correct path from config → GREEN: implement
+2. RED: test `get_member_filepath` combines invoicing dir + filename → GREEN: implement
+3. RED: test `dump_item` writes JSON file with correct content → GREEN: implement
+4. RED: test `scan_members` reads all .json files from directory (excluding conf.json) → GREEN: implement
+5. RED: test `get_member_status` returns `{invoice_generated: True}` when .pdf exists → GREEN: implement
+6. RED: test `get_member_status` returns `{email_sent: True}` when .mail.log exists → GREEN: implement
+7. RED: test `get_member_status` returns both False when neither exists → GREEN: implement
 
 ### Task 1.5: Refactor `helloasso.py` to use `lib/`
 **Files:** `helloasso.py`
 **Depends on:** Tasks 1.1, 1.2, 1.3, 1.4
 **What:**
-- Replace inline `HelloAsso` class with `from lib.helloasso_client import HelloAsso`
-- Replace inline config loading with `from lib.config import load_config, conf_get`
-- Replace inline `strip_accents_ponct` with `from lib.models import strip_accents_ponct`
-- Replace inline member data transformation with `from lib.models import parse_member, get_member_filename, build_summary`
-- Replace inline file path computation with `from lib.filesystem import get_invoicing_dir, get_member_filepath, dump_item`
-- Keep ALL argparse, display logic, and main loop in `helloasso.py` (this is CLI-specific)
-- The `if __name__ == '__main__':` block stays, using imported functions for data transformation
+- Replace inline classes/functions with imports from `lib/`
+- Keep ALL argparse, display logic, and main loop in `helloasso.py`
+- Run `pytest` to verify all lib/ tests still pass
 
-**Critical:** Output must be byte-identical for all command combinations. The refactor is purely structural.
+**Critical:** Output must be byte-identical for all command combinations.
 
-**Acceptance:** Running `helloasso.py` with any combination of flags produces identical output to the original.
-
-**Commit:** After Wave 1, commit with message "Refactor: extract shared library from helloasso.py"
+**Commit:** "Refactor: extract shared library from helloasso.py with TDD tests"
 
 ---
 
-## Wave 2: Token Refresh
+## Wave 2: Token Refresh (TDD)
 
-### Task 2.1: Add OAuth2 token refresh to `lib/helloasso_client.py`
-**Files:** `lib/helloasso_client.py`
-**What:**
-- Modify `Authenticate()` to store both `access_token` AND `refresh_token` from response
-- Add `RefreshToken()` method:
-  - POST to `/oauth2/token` with `grant_type=refresh_token` + `client_id` + `refresh_token`
-  - Returns new `access_token` and `refresh_token`
-  - Updates stored tokens
-- Add `_request(method, url, **kwargs)` wrapper method:
-  - Makes the HTTP request
-  - On 401 response: calls `RefreshToken()`, retries once
-  - If refresh fails: calls `Authenticate()` (full re-auth), retries once
-  - Raises on other errors
-- Update `GetData()` to use `self._request('get', url, params=payload)` instead of `requests.get()`
+### Task 2.1: Token refresh for HelloAsso client (TDD)
+**Files:** `tests/test_helloasso_client.py`, `lib/helloasso_client.py`
+**TDD cycles (mock `requests.post` and `requests.get` — system boundary):**
+1. RED: test `Authenticate` stores both access_token and refresh_token → GREEN: implement
+2. RED: test `_request` returns response on success (200) → GREEN: implement
+3. RED: test `_request` refreshes token on 401, retries, succeeds → GREEN: implement
+4. RED: test `_request` falls back to full re-auth if refresh fails → GREEN: implement
 
-**Acceptance:** Token refresh works transparently. If access_token expires mid-pagination, data fetching continues.
+**Mocking pattern:** `@patch('lib.helloasso_client.requests.get')` and `@patch('lib.helloasso_client.requests.post')` — we mock at the system boundary (HTTP calls), not internal methods.
 
 **Commit:** "Add OAuth2 token refresh to HelloAsso client"
 
 ---
 
-## Wave 3a: FastAPI Skeleton & Auth
+## Wave 3a: FastAPI Skeleton & Auth (TDD)
 
-### Task 3.1: Create FastAPI app skeleton + requirements.txt
+### Task 3.1: FastAPI app skeleton + requirements
 **Files:** `app/__init__.py`, `app/main.py`, `app/routes/__init__.py`, `requirements.txt`
 **What:**
-- Create `app/__init__.py` (empty)
-- Create `app/routes/__init__.py` (empty)
-- Create `app/main.py`:
-  - FastAPI app with title "ACS HelloAsso Dashboard"
-  - Load config on startup: `config = load_config(os.environ.get('CONF_PATH', 'conf.json'))`
-  - Store config in `app.state.config`
-  - Include all route modules
-  - CORS middleware (allow all origins in dev)
-- Create `requirements.txt`:
-  ```
-  requests
-  fastapi
-  uvicorn[standard]
-  python-multipart
-  ```
+- Create FastAPI app with title "ACS HelloAsso Dashboard"
+- Load config on startup via `CONF_PATH` env var
+- Include all route modules, CORS middleware
+- `requirements.txt`: requests, fastapi, uvicorn[standard], python-multipart, itsdangerous
 
-**Acceptance:** `uvicorn app.main:app --reload` starts and shows Swagger UI at `/docs`.
-
-### Task 3.2: Create auth routes
-**Files:** `app/routes/auth.py`
-**What:**
-- Read `DASHBOARD_PASSWORD` from env var
-- `POST /api/auth/login` — accepts JSON `{"password": "xxx"}`, sets session cookie if correct
-- `POST /api/auth/logout` — clears session cookie
-- `GET /api/auth/check` — returns 200 if authenticated, 401 if not
-- Auth dependency function `require_auth(request)` that checks session cookie
-- If `DASHBOARD_PASSWORD` is not set: all requests pass auth (dev mode)
-- Session via signed cookies (FastAPI `Starlette` SessionMiddleware with a secret key)
-
-**Acceptance:** Login with correct password sets cookie. Protected routes reject without cookie.
-
-### Task 3.3: Create health route
-**Files:** `app/routes/health.py`
-**What:**
-- `GET /api/health` — returns `{"status": "ok"}` (no auth required)
+### Task 3.2: Auth + Health routes (TDD)
+**Files:** `tests/test_api_auth.py`, `app/routes/auth.py`, `app/routes/health.py`
+**TDD cycles (via FastAPI TestClient):**
+1. RED: test health returns 200 `{"status": "ok"}` → GREEN: implement health route
+2. RED: test login with correct password returns 200 → GREEN: implement login
+3. RED: test login with wrong password returns 401 → GREEN: implement validation
+4. RED: test protected route without auth returns 401 → GREEN: implement `require_auth` dependency
+5. RED: test protected route after login returns 200 → GREEN: wire auth cookie
+6. RED: test logout clears session → GREEN: implement logout
+7. RED: test no DASHBOARD_PASSWORD set = dev mode (no auth required) → GREEN: implement
 
 **Commit:** "Add FastAPI skeleton with auth and health routes"
 
 ---
 
-## Wave 3b: API Routes (members, campaigns, summary)
+## Wave 3b: API Routes (TDD)
 
-### Task 3.4: Create members routes
-**Files:** `app/routes/members.py`
-**What:**
-- `GET /api/members` — protected by auth
-  - Reads JSON files from `invoicing/<formSlug>/` via `lib/filesystem.scan_members()`
-  - Transforms each raw item to member dict via `lib/models.parse_member()`
-  - Adds status via `lib/filesystem.get_member_status()`
-  - Query params for filtering: `activity`, `user`, `from_date`, `to_date`, `refund_filtered`, `ea_filter`
-  - Filtering applied in Python after loading (same logic as CLI)
-  - Each member includes status: `{invoice_generated: bool, email_sent: bool}`
-  - Returns JSON array of member objects
-- `GET /api/members/{member_id}` — returns single member by HelloAsso item ID
-- `GET /api/members/export/csv` — returns CSV file (same format as CLI `-m csv`)
+### Task 3.3: Members routes (TDD)
+**Files:** `tests/test_api_members.py`, `app/routes/members.py`
+**Setup:** Test fixtures create JSON member files in tmp_path, configure app to use that directory.
+**TDD cycles:**
+1. RED: test `GET /api/members` returns list of members from JSON files → GREEN: implement
+2. RED: test `GET /api/members` includes status fields (invoice_generated, email_sent) → GREEN: implement
+3. RED: test `GET /api/members?activity=football` filters by activity → GREEN: implement
+4. RED: test `GET /api/members?refund_filtered=true` excludes refunded → GREEN: implement
+5. RED: test `GET /api/members/{id}` returns single member → GREEN: implement
+6. RED: test `GET /api/members/{id}` returns 404 for unknown id → GREEN: implement
+7. RED: test `GET /api/members/export/csv` returns valid CSV with correct headers → GREEN: implement
 
-**Key:** Filters are applied by parsing JSON files and filtering in Python, same as CLI does. No API call to HelloAsso for listing — data comes from dumped files.
+### Task 3.4: Campaigns route (TDD)
+**Files:** `tests/test_api_campaigns.py`, `app/routes/campaigns.py`
+**TDD cycles:**
+1. RED: test `GET /api/campaigns` returns formSlug/formType/organizationName from config → GREEN: implement
+2. RED: test `POST /api/campaigns/refresh` creates JSON files (mock HelloAsso API) → GREEN: implement
 
-**Acceptance:** `/api/members` returns same members as `helloasso.py -m json` (after dump).
-
-### Task 3.5: Create campaigns route
-**Files:** `app/routes/campaigns.py`
-**What:**
-- `GET /api/campaigns` — protected by auth
-  - Returns current campaign info: `{"formSlug": "...", "formType": "...", "organizationName": "..."}`
-  - Reads from config
-- `POST /api/campaigns/refresh` — protected by auth
-  - Creates `HelloAsso(config)` instance
-  - Calls `GetData()` with no filters
-  - Dumps each item to JSON file via `lib/filesystem.dump_item()`
-  - Returns `{"count": N, "formSlug": "..."}` with number of members dumped
-  - Runs in `asyncio.to_thread()` (sync requests + file I/O)
-
-**Acceptance:** After calling refresh, `invoicing/<formSlug>/` contains same JSON files as CLI `--dump`.
-
-### Task 3.6: Create summary route
-**Files:** `app/routes/summary.py`
-**What:**
-- `GET /api/summary` — protected by auth
-  - Reads JSON files via `lib/filesystem.scan_members()`
-  - Transforms via `lib/models.parse_member()` for each item
-  - Computes activity breakdown via `lib/models.build_summary()`
-  - Returns `{"activities": [{"name": "...", "count": N, "members": [...]}], "total": N}`
-
-**Acceptance:** Activity breakdown matches CLI `-s member` output.
+### Task 3.5: Summary route (TDD)
+**Files:** `tests/test_api_summary.py`, `app/routes/summary.py`
+**TDD cycles:**
+1. RED: test `GET /api/summary` returns activity breakdown from JSON files → GREEN: implement
+2. RED: test summary total matches member count → GREEN: implement
 
 **Commit:** "Add members, campaigns, and summary API routes"
 
@@ -223,9 +199,6 @@ services:
       - DASHBOARD_PASSWORD=dev
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
-- Uses existing Dockerfile base or a simple python:3.11 image
-- Mounts project directory for hot reload
-- Sets CONF_PATH and DASHBOARD_PASSWORD
 
 ### Task 4.2: Update .gitignore
 **Files:** `.gitignore`
@@ -239,6 +212,10 @@ services:
 
 ## Verification Checklist
 After all waves:
+
+### Tests
+- [ ] `pytest` runs green (all tests pass)
+- [ ] Tests cover: config, models, filesystem, token refresh, auth, members, campaigns, summary
 
 ### CLI backward compatibility
 - [ ] `python3 helloasso.py --help` shows same help text
@@ -282,12 +259,23 @@ After all waves:
 | `app/__init__.py` | Package marker |
 | `app/main.py` | FastAPI app creation and startup |
 | `app/routes/__init__.py` | Package marker |
-| `app/routes/auth.py` | Login/logout/auth check |
+| `app/routes/auth.py` | Login/logout/auth check + require_auth dependency |
 | `app/routes/health.py` | Health check |
 | `app/routes/members.py` | Member listing, detail, CSV export |
 | `app/routes/campaigns.py` | Campaign info + HelloAsso data refresh |
 | `app/routes/summary.py` | Activity summary |
-| `requirements.txt` | Python dependencies |
+| `tests/__init__.py` | Package marker |
+| `tests/conftest.py` | Shared test fixtures |
+| `tests/test_config.py` | Config loading tests |
+| `tests/test_models.py` | Member transformation tests |
+| `tests/test_filesystem.py` | File operations tests |
+| `tests/test_helloasso_client.py` | Token refresh tests |
+| `tests/test_api_auth.py` | Auth endpoint tests |
+| `tests/test_api_members.py` | Members endpoint tests |
+| `tests/test_api_campaigns.py` | Campaigns endpoint tests |
+| `tests/test_api_summary.py` | Summary endpoint tests |
+| `requirements.txt` | Production Python dependencies |
+| `requirements-dev.txt` | Test dependencies (pytest, httpx) |
 | `docker-compose.yml` | Development setup |
 
 ### Modified Files
