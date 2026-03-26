@@ -62,9 +62,12 @@ describe('login', () => {
     expect(globalThis.fetch).toHaveBeenCalledWith('/api/auth/login', expect.objectContaining({
       method: 'POST',
       credentials: 'include',
-      headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ password: 'secret123' }),
     }));
+    // Verify headers include both Content-Type and X-Requested-With
+    const callHeaders = (globalThis.fetch as any).mock.calls[0][1].headers;
+    expect(callHeaders.get('Content-Type')).toBe('application/json');
+    expect(callHeaders.get('X-Requested-With')).toBe('XMLHttpRequest');
   });
 });
 

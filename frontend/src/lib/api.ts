@@ -13,9 +13,13 @@ export class ApiError extends Error {
 
 export async function apiFetch(path: string, options: RequestInit = {}): Promise<any> {
   const url = `/api${path}`;
+  // Add X-Requested-With header for CSRF protection
+  const headers = new Headers(options.headers as HeadersInit || {});
+  headers.set('X-Requested-With', 'XMLHttpRequest');
   const response = await fetch(url, {
     credentials: 'include',
     ...options,
+    headers,
   });
 
   if (!response.ok) {
@@ -73,9 +77,6 @@ export function exportCSV(params?: Record<string, string>) {
 }
 
 // Campaigns
-export function getCampaigns() {
-  return apiFetch('/campaigns');
-}
 
 export function refreshCampaigns() {
   return apiFetch('/campaigns/refresh', { method: 'POST' });
@@ -110,10 +111,6 @@ export function deleteInvoice(memberId: string) {
 
 export function downloadInvoice(memberId: string) {
   return apiFetch(`/invoices/${memberId}/download`);
-}
-
-export function previewInvoice(memberId: string) {
-  return apiFetch(`/invoices/${memberId}/preview`);
 }
 
 // Emails

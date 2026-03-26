@@ -2,7 +2,6 @@
 import csv
 import io
 import json
-import re
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -65,9 +64,10 @@ def list_members(
 
         member_resp = _member_to_response(filepath, item)
 
-        # Activity filter (regex on activities list)
         if activity:
-            if not any(re.search(activity, a, re.IGNORECASE) for a in member_resp.get("activities", [])):
+            # Truncate to prevent ReDoS, use case-insensitive substring match
+            safe_activity = activity[:100]
+            if not any(safe_activity.lower() in a.lower() for a in member_resp.get("activities", [])):
                 continue
 
         results.append(member_resp)

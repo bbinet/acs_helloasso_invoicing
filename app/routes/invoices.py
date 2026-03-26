@@ -20,6 +20,14 @@ from lib.invoicing import (
 router = APIRouter()
 
 
+def _validate_within_dir(filepath, base_dir):
+    """Ensure filepath is within base_dir (prevent path traversal)."""
+    real_base = os.path.realpath(base_dir)
+    real_path = os.path.realpath(filepath)
+    if not real_path.startswith(real_base + os.sep):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+
 @router.post("/{member_id}/generate")
 async def generate_invoice(
     member_id: int,
@@ -57,6 +65,7 @@ def download_invoice(
         raise HTTPException(status_code=404, detail="Member not found")
 
     pdf_path = sibling_path(filepath, ".pdf")
+    _validate_within_dir(pdf_path, invoicing_dir)
     if not os.path.isfile(pdf_path):
         raise HTTPException(status_code=404, detail="PDF not found -- generate invoice first")
 
