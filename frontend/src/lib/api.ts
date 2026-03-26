@@ -77,9 +77,6 @@ export function exportCSV(params?: Record<string, string>) {
 }
 
 // Campaigns
-export function getCampaigns() {
-  return apiFetch('/campaigns');
-}
 
 export function refreshCampaigns() {
   return apiFetch('/campaigns/refresh', { method: 'POST' });
@@ -114,10 +111,6 @@ export function deleteInvoice(memberId: string) {
 
 export function downloadInvoice(memberId: string) {
   return apiFetch(`/invoices/${memberId}/download`);
-}
-
-export function previewInvoice(memberId: string) {
-  return apiFetch(`/invoices/${memberId}/preview`);
 }
 
 // Emails
