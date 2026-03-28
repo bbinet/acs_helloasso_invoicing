@@ -145,7 +145,45 @@ members by running the following command:
 $ make sendemail
 ```
 
-## Docker
+## Web Interface (Dashboard)
+
+A web interface allows you to view members, generate invoices and send them by email.
+
+### Development
+
+```bash
+# Backend (API)
+python -m uvicorn api:app --reload
+
+# Frontend (in another terminal)
+cd frontend
+npm install
+npm run dev
+```
+
+The interface is available at http://localhost:5173
+
+### Docker Deployment
+
+```bash
+# Build and start
+docker compose -f docker-compose.prod.yml --profile build up frontend-builder
+docker compose -f docker-compose.prod.yml up -d
+
+# Environment variables
+DASHBOARD_PASSWORD=xxx    # login password
+SESSION_SECRET=xxx        # session secret
+```
+
+The interface is available at http://localhost
+
+### Available Pages
+
+- **Dashboard**: overview with stats and activity donut chart
+- **Members**: member list, invoice generation/sending
+- **Graphs**: registration evolution, activity distribution
+
+## Docker (CLI)
 
 A docker container (with a ssh server included and everything pre-installed)
 has been created to allow to easily host this tool online so that windows
