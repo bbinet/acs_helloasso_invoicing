@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import BatchProgress from './BatchProgress.svelte';
   import InvoicePreview from './InvoicePreview.svelte';
+  import Icon from '../lib/Icon.svelte';
 
   let {
     data = [],
@@ -214,17 +215,26 @@
   <!-- Batch actions -->
   <div class="flex gap-2 flex-wrap">
     {#if onBatchGenerate}
-      <button class="btn btn-primary btn-sm" onclick={handleBatchGenerate}>
-        Générer les factures ({sortedData.filter(m => !m.invoice_generated).length})
+      <button class="btn btn-outline btn-sm" onclick={handleBatchGenerate}>
+        <Icon name="document" />
+        <span class="hidden sm:inline">Générer les factures</span>
+        <span class="sm:hidden">Factures</span>
+        ({sortedData.filter(m => !m.invoice_generated).length})
       </button>
     {/if}
     {#if onBatchSend}
-      <button class="btn btn-secondary btn-sm" onclick={handleBatchSend}>
-        Envoyer les emails ({sortedData.filter(m => m.invoice_generated && !m.email_sent).length})
+      <button class="btn btn-outline btn-sm" onclick={handleBatchSend}>
+        <Icon name="mail" />
+        <span class="hidden sm:inline">Envoyer les emails</span>
+        <span class="sm:hidden">Emails</span>
+        ({sortedData.filter(m => m.invoice_generated && !m.email_sent).length})
       </button>
     {/if}
     <button class="btn btn-outline btn-sm" onclick={exportCSV}>
-      Exporter CSV ({sortedData.length})
+      <Icon name="export" />
+      <span class="hidden sm:inline">Exporter CSV</span>
+      <span class="sm:hidden">CSV</span>
+      ({sortedData.length})
     </button>
   </div>
 
@@ -372,24 +382,24 @@
               <li class="menu-title text-xs">Générée le {member.invoice_date}</li>
             {/if}
             <li role="menuitem"><button class="flex items-center gap-2" onclick={() => handlePreview(member.id)}>
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+              <Icon name="eye" />
               Aperçu
             </button></li>
             <li role="menuitem"><button class="flex items-center gap-2" onclick={() => { onDownload?.(String(member.id)); closeDropdowns(); }}>
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+              <Icon name="download" />
               Télécharger
             </button></li>
             <li role="menuitem"><button class="flex items-center gap-2" onclick={() => { onRegenerateInvoice?.(String(member.id)); closeDropdowns(); }}>
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              <Icon name="refresh" />
               Regénérer
             </button></li>
             <li role="menuitem"><button class="flex items-center gap-2 text-error" onclick={() => { onDeleteInvoice?.(String(member.id)); closeDropdowns(); }}>
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              <Icon name="trash" />
               Supprimer
             </button></li>
           {:else}
             <li role="menuitem"><button class="flex items-center gap-2" onclick={() => { onGenerateInvoice?.(String(member.id)); closeDropdowns(); }}>
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+              <Icon name="document" />
               Générer
             </button></li>
           {/if}
@@ -399,12 +409,12 @@
           {/if}
           {#if member.invoice_generated && !member.email_sent}
             <li role="menuitem"><button class="flex items-center gap-2" onclick={() => { onSendEmail?.(String(member.id)); closeDropdowns(); }}>
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+              <Icon name="mail" />
               Envoyer
             </button></li>
           {:else if member.email_sent}
             <li role="menuitem"><button class="flex items-center gap-2" onclick={() => { onSendEmail?.(String(member.id)); closeDropdowns(); }}>
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+              <Icon name="mail" />
               Renvoyer
             </button></li>
           {:else}
