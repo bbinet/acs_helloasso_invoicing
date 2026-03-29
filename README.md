@@ -2,6 +2,50 @@
 
 The ACS HelloAsso invoicing tool query HelloAsso API V5 and generate invoices for ACS members.
 
+## Project Structure
+
+```
+            Terminal                                   Web Browser
+                 │                                           │
+                 ▼                                           ▼
+┌────────────────────────────┐              ┌────────────────────────────────┐
+│     CLI (helloasso.py)     │              │    Frontend (Svelte)           │
+│                            │              │         frontend/              │
+│   - Query members          │              └───────────────┬────────────────┘
+│   - Filter/export data     │                              │ HTTP
+│   - Generate invoices      │              ┌───────────────▼────────────────┐
+│   - Send emails            │              │    Backend (FastAPI)           │
+│                            │              │           app/                 │
+└─────────────┬──────────────┘              └───────────────┬────────────────┘
+              │                                             │
+              │      ┌────────────────────────────────┐     │
+              └─────▶│             lib/               │◀────┘
+                     │                                │
+                     │                                │
+                     │  - models                      │
+                     │  - invoicing                   │
+                     │  - config, filesystem          │ HTTP
+                     │  - helloasso_client ───────────┼──────▶ HelloAsso API
+                     │                                │
+                     └───────────────┬────────────────┘
+                                     │
+                     ┌───────────────┴───────────────┐
+                     │                               │
+                     ▼                               ▼
+            ┌────────────────┐              ┌────────────────┐
+            │  PDF Invoices  │              │  Email (SMTP)  │
+            │                │              │                │
+            │invoicing/*.pdf │              │ Send to member │
+            └────────────────┘              └────────────────┘
+```
+
+| Directory | Description |
+|-----------|-------------|
+| `lib/` | Shared library (HelloAsso client, models, invoicing logic) |
+| `helloasso.py` | CLI tool for terminal usage |
+| `app/` | FastAPI backend exposing REST endpoints |
+| `frontend/` | Svelte web interface consuming the API |
+
 ## Requirements
 
 You must have the `requests` Python package installed:
@@ -145,7 +189,45 @@ members by running the following command:
 $ make sendemail
 ```
 
-## Docker
+## Web Interface (Dashboard)
+
+A web interface allows you to view members, generate invoices and send them by email.
+
+### Development
+
+```bash
+# Backend (API)
+python -m uvicorn api:app --reload
+
+# Frontend (in another terminal)
+cd frontend
+npm install
+npm run dev
+```
+
+The interface is available at http://localhost:5173
+
+### Docker Deployment
+
+```bash
+# Build and start
+docker compose -f docker-compose.prod.yml --profile build up frontend-builder
+docker compose -f docker-compose.prod.yml up -d
+
+# Environment variables
+DASHBOARD_PASSWORD=xxx    # login password
+SESSION_SECRET=xxx        # session secret
+```
+
+The interface is available at http://localhost
+
+### Available Pages
+
+- **Dashboard**: overview with stats and activity donut chart
+- **Members**: member list, invoice generation/sending
+- **Graphs**: registration evolution, activity distribution
+
+## Docker (CLI)
 
 A docker container (with a ssh server included and everything pre-installed)
 has been created to allow to easily host this tool online so that windows

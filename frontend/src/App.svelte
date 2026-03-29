@@ -4,6 +4,7 @@
   import Login from './pages/Login.svelte';
   import Dashboard from './pages/Dashboard.svelte';
   import Members from './pages/Members.svelte';
+  import Graphs from './pages/Graphs.svelte';
   import { checkAuth } from './lib/api';
   import { authenticated } from './lib/stores';
 
@@ -11,6 +12,7 @@
     '/login': Login,
     '/': Dashboard,
     '/members': Members,
+    '/graphs': Graphs,
   };
 
   let checking = $state(true);

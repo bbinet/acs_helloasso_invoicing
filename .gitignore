@@ -6,9 +6,11 @@ __pycache__/
 /invoicing/signature.png
 /invoicing/*/*.pdf
 /invoicing/*/*.json
+/invoicing/*/*.html
 /invoicing/*/*.mail.log
 /invoicing/*/Makefile
 /invoicing/*/signature.png
 frontend/node_modules/
 frontend/dist/
+frontend/.vite/
 node_modules/

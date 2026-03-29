@@ -63,28 +63,9 @@ export function getMembers(params?: Record<string, string>) {
   return apiFetch(path);
 }
 
-export function getMember(memberId: string) {
-  return apiFetch(`/members/${memberId}`);
-}
-
-export function exportCSV(params?: Record<string, string>) {
-  let path = '/members/export/csv';
-  if (params && Object.keys(params).length > 0) {
-    const qs = new URLSearchParams(params).toString();
-    path += `?${qs}`;
-  }
-  return apiFetch(path);
-}
-
 // Campaigns
-
 export function refreshCampaigns() {
   return apiFetch('/campaigns/refresh', { method: 'POST' });
-}
-
-// Summary
-export function getSummary() {
-  return apiFetch('/summary');
 }
 
 // Invoices
@@ -107,10 +88,6 @@ export function cancelBatchInvoices(jobId: string) {
 
 export function deleteInvoice(memberId: string) {
   return apiFetch(`/invoices/${memberId}`, { method: 'DELETE' });
-}
-
-export function downloadInvoice(memberId: string) {
-  return apiFetch(`/invoices/${memberId}/download`);
 }
 
 // Emails
